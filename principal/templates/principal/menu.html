@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Menú Principal - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .hero-section { background: linear-gradient(135deg, #0d6efd 0%, #0043a8 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; border-radius: 0 0 20px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .menu-card { transition: all 0.3s; border: none; border-radius: 15px; overflow: hidden; height: 100%; box-shadow: 0 4px 6px rgba(0,0,0,0.05); cursor: pointer; text-decoration: none; color: inherit; display: block; }
+        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); }
+        .icon-box { font-size: 3rem; margin-bottom: 10px; }
+        .card-body { text-align: center; padding: 2rem; }
+        .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; }
+        .btn-logout:hover { background: rgba(255,255,255,0.3); }
+        .badge-notification { font-size: 0.9rem; padding: 8px 12px; margin-top: 10px; display: inline-block; }
+    </style>
+</head>
+<body>
+
+    <div class="hero-section text-center">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="fw-bold m-0"><i class="bi bi-shop-window"></i> Comercial 2 Hermanos</h2>
+                <div class="d-flex align-items-center gap-3">
+                    <span><i class="bi bi-person-circle"></i> {{ user.username|upper }}</span>
+                    <form action="{% url 'logout' %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-logout rounded-pill px-3">
+                            <i class="bi bi-box-arrow-right"></i> Salir
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <p class="opacity-75">Sistema de Gestión de Punto de Venta e Inventario</p>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            
+            <div class="col">
+                <a href="{% url 'ventas' %}" class="card menu-card text-primary">
+                    <div class="card-body">
+                        <div class="icon-box"><i class="bi bi-cart4"></i></div>
+                        <h4 class="card-title fw-bold">Punto de Venta</h4>
+                        <p class="text-muted small">Realizar ventas, facturación y tickets.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'lista_productos' %}" class="card menu-card text-success">
+                    <div class="card-body">
+                        <div class="icon-box"><i class="bi bi-box-seam"></i></div>
+                        <h4 class="card-title fw-bold">Productos</h4>
+                        <p class="text-muted small">Ver listado, precios y stock actual.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'compras' %}" class="card menu-card text-warning">
+                    <div class="card-body">
+                        <div class="icon-box text-warning"><i class="bi bi-truck"></i></div>
+                        <h4 class="card-title fw-bold text-dark">Ingreso Mercadería</h4>
+                        <p class="text-muted small">Registrar compras y aumentar stock.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'gestion_clientes' %}" class="card menu-card text-info">
+                    <div class="card-body">
+                        <div class="icon-box text-info"><i class="bi bi-people-fill"></i></div>
+                        <h4 class="card-title fw-bold text-dark">Clientes</h4>
+                        <p class="text-muted small">Administrar base de datos de clientes.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'cuentas_por_cobrar' %}" class="card menu-card border-danger">
+                    <div class="card-body">
+                        <div class="icon-box text-danger"><i class="bi bi-journal-medical"></i></div>
+                        <h4 class="card-title fw-bold text-danger">Cuentas por Cobrar</h4>
+                        <p class="text-muted small mb-0">Gestionar fiados y abonos.</p>
+                        
+                        {% if deudas_pendientes > 0 %}
+                            <span class="badge bg-danger rounded-pill badge-notification animate__animated animate__pulse animate__infinite">
+                                🔔 {{ deudas_pendientes }} Pendientes
+                            </span>
+                        {% else %}
+                            <span class="badge bg-success rounded-pill badge-notification">
+                                ✅ Todo al día
+                            </span>
+                        {% endif %}
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'cierre' %}" class="card menu-card text-danger">
+                    <div class="card-body">
+                        <div class="icon-box"><i class="bi bi-cash-coin"></i></div>
+                        <h4 class="card-title fw-bold">Cierre de Caja</h4>
+                        <p class="text-muted small">Ver resumen de ventas del día.</p>
+                    </div>
+                </a>
+            </div>
+
+            {% if user.is_superuser %}
+            <div class="col">
+                <a href="{% url 'reportes_menu' %}" class="card menu-card text-white bg-dark">
+                    <div class="card-body">
+                        <div class="icon-box"><i class="bi bi-graph-up-arrow"></i></div>
+                        <h4 class="card-title fw-bold">Reportes Gerenciales</h4>
+                        <p class="text-white-50 small">Ventas, Inventario y Auditoría.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col">
+                <a href="{% url 'gestion_usuarios' %}" class="card menu-card text-secondary">
+                    <div class="card-body">
+                        <div class="icon-box"><i class="bi bi-shield-lock-fill"></i></div>
+                        <h4 class="card-title fw-bold">Usuarios</h4>
+                        <p class="text-muted small">Gestionar accesos y permisos.</p>
+                    </div>
+                </a>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <footer class="text-center text-muted py-3 mt-auto">
+        <small>&copy; 2026 Comercial 2 Hermanos - Versión 1.0</small>
+    </footer>
+
+</body>
+</html>

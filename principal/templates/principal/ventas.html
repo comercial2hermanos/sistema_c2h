@@ -1,0 +1,493 @@
+{% load l10n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Punto de Venta - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <style>
+        body { background-color: #e9ecef; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .navbar { flex-shrink: 0; z-index: 1000; }
+        .main-container { flex-grow: 1; overflow: hidden; padding: 15px; height: 100%; }
+        .col-productos { display: flex; flex-direction: column; height: 100%; }
+        .grid-scroll { flex-grow: 1; overflow-y: auto; padding-right: 5px; padding-bottom: 50px; }
+        .col-ticket { height: 100%; display: flex; flex-direction: column; }
+        .ticket-card { height: 100%; display: flex; flex-direction: column; border: none; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); }
+        .ticket-header { flex-shrink: 0; padding: 15px; background: #212529; color: white; }
+        .ticket-body-scroll { flex-grow: 1; overflow-y: auto; padding: 0; background: white; border-bottom: 1px solid #dee2e6; } 
+        .ticket-footer { flex-shrink: 0; padding: 15px; background: #f8f9fa; border-top: 1px solid #dee2e6; }
+        .product-card { cursor: pointer; transition: transform 0.1s; border: 1px solid #dee2e6; background: white; user-select: none; position: relative; }
+        .product-card:active { transform: scale(0.95); }
+        .product-card:hover { border-color: #0d6efd; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .stock-badge { position: absolute; top: 5px; right: 5px; font-size: 0.75rem; z-index: 10; }
+        .money-input { font-size: 1.2rem; font-weight: bold; color: #198754; text-align: right; }
+        .change-display { font-size: 1.2rem; font-weight: bold; color: #dc3545; text-align: right; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar navbar-dark bg-primary px-3 shadow-sm">
+        <span class="navbar-brand mb-0 h1 fw-bold"><i class="bi bi-basket2-fill"></i> Comercial 2 Hermanos</span>
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-white small"><i class="bi bi-person-circle"></i> {{ user.username|upper }}</span>
+            <a href="{% url 'menu' %}" class="btn btn-sm btn-light fw-bold text-primary border shadow-sm">
+                <i class="bi bi-house-door-fill"></i> Volver al Menú
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid main-container">
+        <div class="row h-100">
+            
+            <div class="col-md-8 col-productos">
+                <div class="input-group mb-3 shadow-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-primary"></i></span>
+                    <input type="text" id="buscador" class="form-control form-control-lg border-start-0" placeholder="Escanear código o buscar..." autocomplete="off">
+                </div>
+
+                <div class="grid-scroll">
+                    {% if not productos %}
+                        <div class="alert alert-warning text-center mt-5">
+                            <h4><i class="bi bi-exclamation-triangle"></i> No hay productos registrados</h4>
+                            <p>Vaya al módulo de "Ingreso Mercadería" para crear productos.</p>
+                        </div>
+                    {% endif %}
+
+                    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2" id="grid-productos">
+                        {% for p in productos %}
+                        <div class="col producto-item" data-nombre="{{ p.nombre|lower }}" data-codigo="{{ p.codigo }}">
+                            <div class="card product-card h-100 p-2"
+                                 onclick="agregarAlCarrito({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|unlocalize }}, '{{ p.stock_actual|unlocalize }}', {{ p.es_granel|yesno:'true,false' }})">
+                                
+                                {% if p.stock_actual > 0 %}
+                                    <span class="badge bg-success stock-badge">
+                                        {{ p.stock_actual|floatformat:2 }} {% if p.es_granel %}Lb{% endif %}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger stock-badge">AGOTADO</span>
+                                {% endif %}
+
+                                <div class="text-center mt-3 p-2">
+                                    <h6 class="text-dark fw-bold mb-1 text-uppercase small">{{ p.nombre }}</h6>
+                                    <h4 class="text-primary fw-bold mb-0">${{ p.precio_venta }}</h4>
+                                    {% if p.es_granel %}
+                                        <span class="badge bg-warning text-dark mt-1" style="font-size: 0.6rem;">POR PESO / GRANEL</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 col-ticket">
+                <div class="card ticket-card">
+                    <div class="ticket-header">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0"><i class="bi bi-cart4"></i> Venta Actual</h5>
+                            <span class="badge bg-warning text-dark" id="cart-count">0 items</span>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <select id="select-cliente" class="form-select form-select-sm fw-bold">
+                                    <option value="">Seleccionar Cliente</option>
+                                    {% for c in clientes %}
+                                        <option value="{{ c.id }}" {% if c.nombre|upper == 'CONSUMIDOR FINAL' %}selected{% endif %}>
+                                            {{ c.nombre }} ({{ c.ruc_cedula|default:'S/N' }})
+                                        </option>
+                                    {% empty %}
+                                        <option value="">No hay clientes registrados</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <select id="select-pago" class="form-select form-select-sm fw-bold" onchange="verificarCredito()">
+                                    <option value="EFECTIVO">💵 Efectivo</option>
+                                    <option value="TARJETA">💳 Tarjeta</option>
+                                    <option value="TRANSFERENCIA">🏦 Transferencia</option>
+                                    <option value="CREDITO" class="text-danger">📕 Crédito / Fiado</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ticket-body-scroll">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-dark sticky-top small">
+                                <tr>
+                                    <th class="ps-3">Desc.</th>
+                                    <th class="text-center">Cant.</th>
+                                    <th class="text-end pe-3">Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-carrito"></tbody>
+                        </table>
+                        <div id="empty-msg" class="text-center text-muted mt-5">
+                            <i class="bi bi-cart-x display-1 opacity-25"></i><p>Carrito vacío</p>
+                        </div>
+                    </div>
+
+                    <div class="ticket-footer">
+                        <div class="row mb-3 bg-light border rounded p-2 mx-0 align-items-center" id="bloque-dinero">
+                            <div class="col-6 p-1">
+                                <label class="small text-muted fw-bold">RECIBIDO ($)</label>
+                                <input type="number" id="monto-recibido" class="form-control money-input" placeholder="0.00" onkeyup="calcularCambio()">
+                            </div>
+                            <div class="col-6 p-1 text-end">
+                                <label class="small text-muted fw-bold">CAMBIO ($)</label>
+                                <div id="monto-cambio" class="change-display">0.00</div>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="h4 mb-0 text-secondary">TOTAL:</span>
+                            <span class="h2 mb-0 fw-bold text-success">$<span id="total-venta">0.00</span></span>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button onclick="procesarVenta()" class="btn btn-success btn-lg fw-bold shadow-sm" id="btn-confirmar">
+                                <i class="bi bi-check-circle-fill"></i> CONFIRMAR (F2)
+                            </button>
+                            <button onclick="confirmarCancelar()" class="btn btn-outline-danger">
+                                <i class="bi bi-trash3"></i> Cancelar Venta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalGranel" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-calculator"></i> Venta por Peso/Valor</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <h4 id="granel-nombre" class="text-center text-primary mb-3">Producto</h4>
+            <h5 class="text-center text-muted">Precio por Libra: $<span id="granel-precio">0.00</span></h5>
+            <hr>
+            <div class="row g-3">
+                <div class="col-6">
+                    <label class="fw-bold text-success">Quiero vender ($):</label>
+                    <div class="input-group">
+                        <span class="input-group-text">$</span>
+                        <input type="number" id="input-dinero" class="form-control form-control-lg fw-bold text-success" placeholder="1.00" step="0.05">
+                    </div>
+                    <small class="text-muted">Ej: $0.50 de tomate</small>
+                </div>
+                <div class="col-6">
+                    <label class="fw-bold text-primary">Peso (Lb):</label>
+                    <div class="input-group">
+                        <input type="number" id="input-peso" class="form-control form-control-lg fw-bold text-primary" placeholder="0.000" step="0.001">
+                        <span class="input-group-text">Lb</span>
+                    </div>
+                    <small class="text-muted">Se descontará del stock.</small>
+                </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-success fw-bold" onclick="confirmarGranel()">
+                <i class="bi bi-check-lg"></i> Agregar al Carrito
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        let carrito = {}; 
+        let productoActualGranel = null; 
+        
+        const modalGranel = new bootstrap.Modal(document.getElementById('modalGranel'));
+
+        // === INICIO Y BUSQUEDA ===
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('buscador').focus();
+        });
+
+        document.getElementById('buscador').addEventListener('keyup', function(e) {
+            let texto = e.target.value.toLowerCase();
+            let items = document.querySelectorAll('.producto-item');
+            
+            if(e.key === 'Enter') {
+                let exacto = Array.from(items).find(item => item.dataset.codigo === texto);
+                if(exacto) {
+                    exacto.querySelector('.card').click();
+                    this.value = '';
+                    return;
+                }
+            }
+
+            items.forEach(item => {
+                let nombre = item.dataset.nombre;
+                let codigo = item.dataset.codigo;
+                item.style.display = (nombre.includes(texto) || codigo.includes(texto)) ? 'block' : 'none';
+            });
+        });
+
+        // === LÓGICA DE AGREGAR ===
+        function agregarAlCarrito(id, nombre, precio, stockMax, esGranel) {
+            stockMax = parseFloat(stockMax);
+            
+            // 1. Lógica para productos normales (Unidad)
+            if (esGranel === false) {
+                if (stockMax <= 0) return Swal.fire({toast:true, icon:'error', title:'¡Agotado!', showConfirmButton:false, timer:1000});
+                
+                if (carrito[id]) {
+                    if (carrito[id].cantidad + 1 > stockMax) {
+                        return Swal.fire({toast:true, icon:'warning', title:'Stock Máximo Alcanzado', timer:1000});
+                    }
+                    carrito[id].cantidad++;
+                    carrito[id].subtotal = carrito[id].cantidad * precio;
+                } else {
+                    carrito[id] = { nombre: nombre, precio: parseFloat(precio), cantidad: 1, subtotal: parseFloat(precio), stockMax: stockMax, esGranel: false };
+                }
+                renderizarTabla();
+            } 
+            // 2. Lógica para productos a Granel (Peso)
+            else {
+                productoActualGranel = { id, nombre, precio, stockMax };
+                document.getElementById('granel-nombre').innerText = nombre;
+                document.getElementById('granel-precio').innerText = precio.toFixed(2);
+                document.getElementById('input-dinero').value = ''; 
+                document.getElementById('input-peso').value = '';   
+                
+                modalGranel.show();
+                setTimeout(() => document.getElementById('input-dinero').focus(), 500);
+            }
+        }
+
+        // === CALCULADORA MODAL GRANEL ===
+        document.getElementById('input-dinero').addEventListener('input', function(e) {
+            let dinero = parseFloat(e.target.value);
+            let precio = productoActualGranel.precio;
+            if (!isNaN(dinero) && precio > 0) {
+                let peso = dinero / precio;
+                document.getElementById('input-peso').value = peso.toFixed(3);
+            }
+        });
+
+        document.getElementById('input-peso').addEventListener('input', function(e) {
+            let peso = parseFloat(e.target.value);
+            let precio = productoActualGranel.precio;
+            if (!isNaN(peso)) {
+                let dinero = peso * precio;
+                document.getElementById('input-dinero').value = dinero.toFixed(2);
+            }
+        });
+
+        function confirmarGranel() {
+            let peso = parseFloat(document.getElementById('input-peso').value);
+            let dinero = parseFloat(document.getElementById('input-dinero').value);
+            
+            if (!peso || peso <= 0) return Swal.fire('Ingrese un valor válido', '', 'warning');
+            
+            let id = productoActualGranel.id;
+            let cantidadActual = carrito[id] ? carrito[id].cantidad : 0;
+            
+            if ((cantidadActual + peso) > productoActualGranel.stockMax) {
+                return Swal.fire('Stock insuficiente', `Solo quedan ${productoActualGranel.stockMax} disponibles`, 'warning');
+            }
+
+            if (carrito[id]) {
+                carrito[id].cantidad += peso;
+                carrito[id].subtotal += dinero;
+            } else {
+                carrito[id] = { 
+                    nombre: productoActualGranel.nombre, 
+                    precio: productoActualGranel.precio, 
+                    cantidad: peso, 
+                    subtotal: dinero, 
+                    stockMax: productoActualGranel.stockMax,
+                    esGranel: true 
+                };
+            }
+            modalGranel.hide();
+            renderizarTabla();
+        }
+
+        // === RENDERIZADO DEL TICKET (CORREGIDO PARA LIBRAS/UNIDADES) ===
+        function renderizarTabla() {
+            let tbody = document.getElementById('tabla-carrito');
+            tbody.innerHTML = '';
+            let total = 0;
+            let count = 0;
+            let hasItems = false;
+
+            for (let id in carrito) {
+                hasItems = true;
+                let item = carrito[id];
+                total += item.subtotal;
+                count++; 
+
+                // Lógica de visualización corregida:
+                let cantidadDisplay;
+                let unidadDisplay;
+
+                if (item.esGranel) {
+                    cantidadDisplay = item.cantidad.toFixed(2); // 2 decimales para libras
+                    unidadDisplay = "Lb";
+                } else {
+                    cantidadDisplay = item.cantidad.toFixed(0); // 0 decimales para unidades
+                    unidadDisplay = "Ud";
+                }
+
+                let row = `<tr>
+                    <td class="ps-3 align-middle">
+                        <small class="fw-bold">${item.nombre}</small>
+                        ${item.esGranel ? '<br><span class="badge bg-warning text-dark" style="font-size:0.6em">Granel</span>' : ''}
+                    </td>
+                    <td class="text-center align-middle">
+                        <div class="d-flex justify-content-center align-items-center gap-1">
+                        ${item.esGranel 
+                            ? `<span class="fw-bold text-primary">${cantidadDisplay} ${unidadDisplay}</span>` 
+                            : `<input type="number" class="form-control form-control-sm text-center p-0 mx-auto" 
+                               value="${cantidadDisplay}" min="1" max="${item.stockMax}" 
+                               onchange="cambiarCantidad(${id}, this.value)" style="width: 50px;">`
+                        }
+                        </div>
+                    </td>
+                    <td class="text-end pe-3 fw-bold align-middle">$${item.subtotal.toFixed(2)}</td>
+                    <td class="text-center align-middle">
+                        <i class="bi bi-x-circle text-danger" style="cursor: pointer;" onclick="eliminarItem(${id})"></i>
+                    </td>
+                </tr>`;
+                tbody.innerHTML += row;
+            }
+
+            document.getElementById('empty-msg').style.display = hasItems ? 'none' : 'block';
+            document.getElementById('total-venta').innerText = total.toFixed(2);
+            document.getElementById('cart-count').innerText = count + " items";
+            calcularCambio();
+        }
+
+        // === FUNCIONES DE MODIFICACIÓN ===
+        window.cambiarCantidad = function(id, val) {
+            val = parseFloat(val);
+            let item = carrito[id];
+            if (val < 1 || isNaN(val)) val = 1;
+            
+            if (val > item.stockMax) { 
+                val = item.stockMax; 
+                Swal.fire({toast:true, icon:'info', title:'Stock máximo', position:'top-end', showConfirmButton:false, timer:1000}); 
+            }
+            
+            item.cantidad = val;
+            item.subtotal = val * item.precio;
+            renderizarTabla();
+        }
+
+        window.eliminarItem = function(id) { 
+            delete carrito[id]; 
+            renderizarTabla(); 
+        }
+
+        window.confirmarCancelar = function() {
+            if (Object.keys(carrito).length === 0) return;
+            Swal.fire({
+                title: '¿Cancelar Venta?', text: "Se limpiará el ticket actual.", icon: 'warning',
+                showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, cancelar'
+            }).then((result) => { if (result.isConfirmed) limpiarCarrito(); });
+        }
+
+        function limpiarCarrito() {
+            carrito = {};
+            renderizarTabla();
+            document.getElementById('monto-recibido').value = '';
+            document.getElementById('monto-cambio').innerText = '0.00';
+            document.getElementById('buscador').value = '';
+            document.getElementById('buscador').focus();
+        }
+
+        // === PAGOS Y CONFIRMACIÓN ===
+        
+        window.verificarCredito = function() {
+            let pago = document.getElementById('select-pago').value;
+            let inputRecibido = document.getElementById('monto-recibido');
+            if (pago === 'CREDITO') {
+                inputRecibido.disabled = true;
+                inputRecibido.value = '';
+                document.getElementById('monto-cambio').innerText = '0.00';
+            } else {
+                inputRecibido.disabled = false;
+            }
+        }
+
+        window.calcularCambio = function() {
+            let total = parseFloat(document.getElementById('total-venta').innerText);
+            let recibido = parseFloat(document.getElementById('monto-recibido').value);
+            let display = document.getElementById('monto-cambio');
+            
+            if (document.getElementById('select-pago').value === 'CREDITO') return;
+
+            if (isNaN(recibido)) { display.innerText = "0.00"; display.style.color = "#dc3545"; return; }
+            let cambio = recibido - total;
+            display.innerText = cambio.toFixed(2);
+            display.style.color = (cambio >= 0) ? "#198754" : "#dc3545";
+        }
+
+        window.procesarVenta = function() {
+            let clienteId = document.getElementById('select-cliente').value;
+            let metodoPago = document.getElementById('select-pago').value;
+            let total = parseFloat(document.getElementById('total-venta').innerText);
+            let recibido = parseFloat(document.getElementById('monto-recibido').value);
+
+            if (Object.keys(carrito).length === 0) return Swal.fire('Carrito vacío', '', 'warning');
+            if (!clienteId) return Swal.fire('Seleccione un Cliente', '', 'warning');
+            
+            if (metodoPago !== 'CREDITO' && !isNaN(recibido) && recibido < total && metodoPago === 'EFECTIVO') {
+                return Swal.fire('Dinero insuficiente', 'El monto recibido es menor al total', 'error');
+            }
+
+            let btn = document.getElementById('btn-confirmar');
+            let textoOriginal = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+            fetch("{% url 'guardar_venta' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+                body: JSON.stringify({ cliente_id: clienteId, metodo_pago: metodoPago, productos: carrito })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    Swal.fire({
+                        title: '¡Venta Exitosa!', text: `Ticket #${data.id_venta} generado.`, icon: 'success',
+                        showDenyButton: true, confirmButtonText: 'Imprimir Ticket', denyButtonText: 'Nueva Venta',
+                    }).then((result) => {
+                        if (result.isConfirmed) { window.open(`/imprimir_ticket/${data.id_venta}/`, '_blank'); location.reload(); }
+                        else { location.reload(); }
+                    });
+                } else { 
+                    Swal.fire('Error', data.mensaje, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = textoOriginal;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire('Error de Conexión', '', 'error');
+                btn.disabled = false;
+                btn.innerHTML = textoOriginal;
+            });
+        }
+        
+        document.addEventListener('keydown', function(event) { 
+            if (event.key === 'F2') {
+                event.preventDefault();
+                procesarVenta(); 
+            }
+        });
+    </script>
+</body>
+</html>

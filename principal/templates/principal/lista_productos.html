@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventario - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light p-4">
+    <div class="container bg-white p-4 rounded shadow">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-warning fw-bold">📦 CATÁLOGO DE PRODUCTOS</h2>
+            <a href="{% url 'menu' %}" class="btn btn-secondary">⬅ Volver al Menú</a>
+        </div>
+        <input type="text" id="buscador" class="form-control mb-3" placeholder="🔍 Buscar producto...">
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-warning">
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Costo (Compra)</th>
+                        <th>P. Venta</th>
+                        <th>Stock Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr class="fila-producto">
+                        <td>{{ p.codigo }}</td>
+                        <td class="fw-bold nombre-prod">{{ p.nombre }}</td>
+                        <td>$ {{ p.precio_costo }}</td>
+                        <td class="text-primary fw-bold">$ {{ p.precio_venta }}</td>
+                        <td>
+                            {% if p.stock_actual <= p.stock_minimo %}
+                                <span class="badge bg-danger rounded-pill">
+                                    {{ p.stock_actual|floatformat:2 }} {% if p.es_granel %}Lb{% else %}U.{% endif %} (Bajo)
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success rounded-pill">
+                                    {{ p.stock_actual|floatformat:2 }} {% if p.es_granel %}Lb{% else %}U.{% endif %}
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center">No hay productos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        document.getElementById('buscador').addEventListener('keyup', function(e) {
+            let texto = e.target.value.toLowerCase();
+            document.querySelectorAll('.fila-producto').forEach(fila => {
+                let nombre = fila.querySelector('.nombre-prod').innerText.toLowerCase();
+                fila.style.display = nombre.includes(texto) ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

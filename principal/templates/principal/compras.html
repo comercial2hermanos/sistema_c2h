@@ -1,0 +1,374 @@
+{% load l10n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión Mercadería - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .nav-tabs .nav-link.active { background-color: #0d6efd; color: white; border-color: #0d6efd; font-weight: bold; }
+        .nav-link { color: #495057; font-weight: bold; }
+        .producto-card { cursor: pointer; transition: transform 0.2s; border-left: 4px solid #0d6efd; }
+        .producto-card:hover { transform: scale(1.03); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .badge-granel { font-size: 0.7rem; background-color: #ffc107; color: #000; }
+    </style>
+</head>
+<body class="p-3">
+    
+    <div class="container-fluid" style="max-width: 1200px;">
+        <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded shadow-sm">
+            <h3 class="text-primary fw-bold m-0"><i class="bi bi-box-seam"></i> GESTIÓN DE MERCADERÍA</h3>
+            <a href="{% url 'menu' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver al Menú</a>
+        </div>
+
+        <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+            <li class="nav-item">
+                <button class="nav-link active" id="reponer-tab" data-bs-toggle="tab" data-bs-target="#reponer" type="button">
+                    <i class="bi bi-cart-plus"></i> Reponer Stock (Compra)
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="nuevo-tab" data-bs-toggle="tab" data-bs-target="#nuevo" type="button">
+                    <i class="bi bi-plus-circle"></i> Registrar Nuevo
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link" id="editar-tab" data-bs-toggle="tab" data-bs-target="#editar" type="button">
+                    <i class="bi bi-pencil-square"></i> Editar / Eliminar
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            
+            <div class="tab-pane fade show active" id="reponer">
+                <div class="row">
+                    <div class="col-md-7">
+                        <div class="input-group mb-3">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Buscar producto por nombre o código..." id="buscador-stock" autocomplete="off">
+                        </div>
+                        
+                        <div class="row g-2" id="lista-stock" style="max-height: 500px; overflow-y: auto;">
+                            {% for p in productos %}
+                            <div class="col-md-4 col-sm-6 item-stock" data-nombre="{{ p.nombre|lower }}" data-codigo="{{ p.codigo }}">
+                                <div class="card producto-card h-100 shadow-sm" onclick="agregarStock({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_costo|unlocalize }})">
+                                    <div class="card-body p-2">
+                                        <h6 class="text-primary fw-bold mb-1">{{ p.nombre }}</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">{{ p.codigo }}</small>
+                                            {% if p.es_granel %}
+                                                <span class="badge badge-granel">Granel</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mt-2 text-end">
+                                            <span class="badge bg-secondary">
+                                                Stock: {{ p.stock_actual|floatformat:2 }} 
+                                                {% if p.es_granel %}Lb{% else %}U.{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="bg-white p-3 shadow rounded border">
+                            <h5 class="fw-bold mb-3"><i class="bi bi-list-check"></i> Lista de Ingreso</h5>
+                            
+                            <div class="mb-3">
+                                <label class="small fw-bold text-muted">Nombre del Proveedor</label>
+                                <input type="text" id="proveedor" class="form-control" value="Consumidor Final">
+                            </div>
+
+                            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                                <table class="table table-sm table-striped align-middle">
+                                    <thead class="table-dark sticky-top">
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th style="width: 80px;">Cant.</th>
+                                            <th style="width: 80px;">Costo $</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabla-carrito">
+                                        </tbody>
+                                </table>
+                            </div>
+                            
+                            <div id="mensaje-vacio" class="text-center text-muted py-3">
+                                <small>Selecciona productos de la izquierda</small>
+                            </div>
+
+                            <button class="btn btn-success w-100 mt-3 fw-bold py-2" onclick="guardarIngreso()">
+                                <i class="bi bi-save"></i> CONFIRMAR INGRESO DE MERCADERÍA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="nuevo">
+                <div class="card p-4 shadow-sm border-0" style="max-width: 600px; margin: auto;">
+                    <h4 class="mb-4 text-primary fw-bold text-center">✨ Registrar Nuevo Producto</h4>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">Código de Barras *</label>
+                        <div class="input-group">
+                            <input type="text" id="new-codigo" class="form-control" placeholder="Escanea o escribe el código...">
+                            <button class="btn btn-outline-secondary" type="button" onclick="generarCodigo()"><i class="bi bi-magic"></i> Auto</button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="fw-bold">Nombre del Producto *</label>
+                        <input type="text" id="new-nombre" class="form-control" placeholder="Ej: Arroz Flor 1Lb">
+                    </div>
+
+                    <div class="mb-4 p-3 bg-light border rounded">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="new-granel">
+                            <label class="form-check-label fw-bold" for="new-granel">¿Es Legumbre / Venta por Peso?</label>
+                        </div>
+                        <small class="text-muted">Activa esto si el producto se vende por fracciones (Ej: $0.50 de tomate, 1.5 Libras de papa).</small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="fw-bold">Costo ($)</label>
+                            <input type="number" id="new-costo" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="fw-bold">P. Venta ($)</label>
+                            <input type="number" id="new-precio" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="fw-bold">Stock Inicial</label>
+                            <input type="number" id="new-stock" class="form-control" value="0" step="0.001">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary w-100 mt-3 fw-bold" onclick="crearProducto()">
+                        <i class="bi bi-plus-lg"></i> GUARDAR PRODUCTO
+                    </button>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="editar">
+                <div class="card p-4 shadow-sm border-0">
+                    <h5 class="fw-bold mb-3">Administrar Productos Existentes</h5>
+                    <input type="text" id="buscador-edit" class="form-control mb-3" placeholder="🔍 Buscar producto para editar o eliminar...">
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nombre del Producto</th>
+                                    <th>Tipo</th>
+                                    <th>Costo $</th>
+                                    <th>P. Venta $</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in productos %}
+                                <tr class="fila-edit" data-nombre="{{ p.nombre|lower }}">
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm fw-bold" id="nom-{{p.id}}" value="{{ p.nombre }}">
+                                        <small class="text-muted">{{ p.codigo }}</small>
+                                    </td>
+                                    <td>
+                                        {% if p.es_granel %}
+                                            <span class="badge badge-granel">Granel</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark border">Unidad</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" id="cos-{{p.id}}" value="{{ p.precio_costo|unlocalize }}" step="0.01" style="width: 80px;">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" id="pre-{{p.id}}" value="{{ p.precio_venta|unlocalize }}" step="0.01" style="width: 80px;">
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm" onclick="guardarCambios({{p.id}})" title="Guardar Cambios"><i class="bi bi-save"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm" onclick="eliminar({{p.id}})" title="Eliminar"><i class="bi bi-trash"></i></button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- LOGICA TAB 1: REPONER STOCK ---
+        let carrito = {};
+
+        function agregarStock(id, nombre, costo) {
+            if (!carrito[id]) {
+                carrito[id] = { nombre: nombre, cantidad: 1, costo: parseFloat(costo) };
+            } else {
+                carrito[id].cantidad += 1;
+            }
+            actualizarTabla();
+        }
+
+        function actualizarTabla() {
+            let tbody = document.getElementById('tabla-carrito');
+            let msgVacio = document.getElementById('mensaje-vacio');
+            tbody.innerHTML = '';
+            
+            if (Object.keys(carrito).length === 0) {
+                msgVacio.style.display = 'block';
+                return;
+            }
+            msgVacio.style.display = 'none';
+
+            for (let id in carrito) {
+                let p = carrito[id];
+                tbody.innerHTML += `
+                    <tr>
+                        <td><small class="fw-bold">${p.nombre}</small></td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm p-1 text-center" 
+                                   value="${p.cantidad}" onchange="carrito[${id}].cantidad=this.value" 
+                                   step="0.001" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm p-1 text-center" 
+                                   value="${p.costo}" onchange="carrito[${id}].costo=this.value" 
+                                   step="0.01" min="0">
+                        </td>
+                        <td>
+                            <i class="bi bi-x-circle-fill text-danger" style="cursor:pointer" onclick="delete carrito[${id}]; actualizarTabla()"></i>
+                        </td>
+                    </tr>`;
+            }
+        }
+
+        function guardarIngreso() {
+            if (Object.keys(carrito).length === 0) return Swal.fire('Lista vacía', 'Agrega productos primero', 'warning');
+            
+            fetch("{% url 'guardar_compra' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({
+                    proveedor: document.getElementById('proveedor').value, 
+                    productos: carrito
+                })
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.status === 'ok'){ 
+                    Swal.fire('¡Éxito!', 'Stock actualizado correctamente', 'success').then(() => location.reload()); 
+                } else { 
+                    Swal.fire('Error', d.mensaje, 'error'); 
+                } 
+            });
+        }
+
+        document.getElementById('buscador-stock').addEventListener('keyup', function(e) {
+            let txt = e.target.value.toLowerCase();
+            document.querySelectorAll('.item-stock').forEach(i => {
+                let nombre = i.getAttribute('data-nombre');
+                let codigo = i.getAttribute('data-codigo');
+                i.style.display = (nombre.includes(txt) || codigo.includes(txt)) ? 'block' : 'none';
+            });
+        });
+
+        // --- LOGICA TAB 2: CREAR PRODUCTO ---
+        function generarCodigo() {
+            document.getElementById('new-codigo').value = Math.floor(Math.random() * 1000000000000);
+        }
+
+        function crearProducto() {
+            let data = {
+                codigo: document.getElementById('new-codigo').value,
+                nombre: document.getElementById('new-nombre').value,
+                es_granel: document.getElementById('new-granel').checked,
+                costo: document.getElementById('new-costo').value,
+                precio: document.getElementById('new-precio').value,
+                stock: document.getElementById('new-stock').value
+            };
+
+            if(!data.codigo || !data.nombre) return Swal.fire('Faltan datos', 'Código y Nombre son obligatorios', 'warning');
+
+            fetch("{% url 'crear_producto' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.status === 'ok'){ 
+                    Swal.fire('Creado', 'Producto registrado exitosamente', 'success').then(() => location.reload()); 
+                } else { 
+                    Swal.fire('Error', d.mensaje, 'error'); 
+                } 
+            });
+        }
+
+        // --- LOGICA TAB 3: EDITAR / ELIMINAR ---
+        function guardarCambios(id) {
+            let data = {
+                id: id,
+                nombre: document.getElementById('nom-'+id).value,
+                costo: document.getElementById('cos-'+id).value,
+                precio: document.getElementById('pre-'+id).value
+            };
+            fetch("{% url 'editar_producto' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(d => { 
+                if(d.status === 'ok') Swal.fire({toast:true, icon:'success', title:'Cambios Guardados', position:'top-end', showConfirmButton:false, timer:1500}); 
+                else Swal.fire('Error', d.mensaje, 'error'); 
+            });
+        }
+
+        function eliminar(id) {
+            Swal.fire({
+                title: '¿Eliminar producto?',
+                text: "No podrás revertir esto. Si tiene ventas históricas, no se eliminará.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/eliminar_producto/${id}/`, { method: 'GET' })
+                    .then(r => r.json())
+                    .then(d => { 
+                        if(d.status === 'ok'){ 
+                            Swal.fire('Eliminado', 'El producto ha sido borrado.', 'success').then(() => location.reload()); 
+                        } else { 
+                            Swal.fire('Error', d.mensaje, 'error'); 
+                        } 
+                    });
+                }
+            })
+        }
+
+        document.getElementById('buscador-edit').addEventListener('keyup', function(e) {
+            let txt = e.target.value.toLowerCase();
+            document.querySelectorAll('.fila-edit').forEach(i => {
+                i.style.display = i.getAttribute('data-nombre').includes(txt) ? '' : 'none';
+            });
+        });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

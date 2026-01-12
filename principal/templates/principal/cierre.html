@@ -1,0 +1,147 @@
+{% load l10n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cierre de Caja - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        .card-cierre { max-width: 600px; margin: 2rem auto; border: none; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .monto-display { font-size: 1.5rem; font-weight: bold; }
+        .total-box { background: #212529; color: white; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px; }
+        .sub-item { font-size: 0.9rem; color: #6c757d; }
+    </style>
+</head>
+<body>
+
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4" style="max-width: 600px; margin: 0 auto;">
+            <a href="{% url 'menu' %}" class="btn btn-secondary shadow-sm">
+                <i class="bi bi-arrow-left"></i> Volver al Menú
+            </a>
+            <span class="badge bg-primary fs-6">Usuario: {{ usuario.username|upper }}</span>
+        </div>
+
+        <div class="card card-cierre bg-white p-4">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold text-danger"><i class="bi bi-shop"></i> CIERRE DE CAJA</h2>
+                <p class="text-muted">Comercial 2 Hermanos</p>
+                <hr>
+                <div class="row text-start text-muted small">
+                    <div class="col-6">
+                        <strong>Fecha Actual:</strong><br> {{ fecha_hora|date:"d/m/Y H:i" }}
+                    </div>
+                    <div class="col-6 text-end">
+                        <strong>Movimientos Nuevos:</strong><br> {{ cantidad_ventas }} ventas
+                    </div>
+                    <div class="col-12 mt-2 text-center text-info">
+                        <em>(Corte anterior: {{ ultimo_cierre|date:"d/m/Y H:i" }})</em>
+                    </div>
+                </div>
+            </div>
+
+            <h5 class="mb-3 fw-bold">Desglose de Dinero Recibido:</h5>
+            
+            <ul class="list-group shadow-sm mb-3">
+                <li class="list-group-item d-flex justify-content-between align-items-center py-3 bg-light">
+                    <div>
+                        <span class="fw-bold"><i class="bi bi-cash-coin text-success"></i> Efectivo Total (En Caja)</span>
+                        <div class="sub-item ps-4">
+                            • Ventas Directas: ${{ efectivo_ventas|default:efectivo|floatformat:2 }} <br>
+                            • Abonos de Créditos: ${{ abonos_hoy|floatformat:2 }}
+                        </div>
+                    </div>
+                    <span class="monto-display text-success">${{ efectivo|floatformat:2 }}</span>
+                </li>
+
+                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                    <span><i class="bi bi-credit-card text-primary"></i> Tarjetas</span>
+                    <span class="monto-display text-primary">${{ tarjeta|floatformat:2 }}</span>
+                </li>
+
+                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
+                    <span><i class="bi bi-bank text-info"></i> Transferencias</span>
+                    <span class="monto-display text-info">${{ transferencia|floatformat:2 }}</span>
+                </li>
+            </ul>
+
+            <div class="total-box shadow">
+                <h5 class="mb-1 text-uppercase opacity-75">Ingreso Total del Turno</h5>
+                <h1 class="fw-bold m-0 display-4">${{ gran_total|floatformat:2 }}</h1>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                {% if cantidad_ventas > 0 or abonos_hoy > 0 %}
+                    <button onclick="confirmarCierre()" class="btn btn-danger btn-lg fw-bold shadow">
+                        <i class="bi bi-lock-fill"></i> CERRAR CAJA E IMPRIMIR
+                    </button>
+                {% else %}
+                    <button class="btn btn-secondary btn-lg" disabled>
+                        No hay movimientos nuevos para cerrar
+                    </button>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function confirmarCierre() {
+            Swal.fire({
+                title: '¿Cerrar Caja?',
+                text: "Esto guardará el corte actual y reiniciará los contadores. ¿Estás seguro?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, Cerrar Caja',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    realizarCierre();
+                }
+            })
+        }
+
+        function realizarCierre() {
+            // Bloqueamos el botón para evitar doble click
+            const btn = document.querySelector('button.btn-danger');
+            if(btn) btn.disabled = true;
+
+            fetch("{% url 'procesar_cierre' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    Swal.fire({
+                        title: '¡Caja Cerrada!',
+                        text: 'El reporte se ha generado correctamente.',
+                        icon: 'success',
+                        confirmButtonText: 'Imprimir Reporte'
+                    }).then(() => {
+                        // Abrir ticket de impresión y recargar página para poner contadores a cero
+                        window.open(`/cierre/imprimir/${data.id_cierre}/`, '_blank');
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', data.mensaje, 'error');
+                    if(btn) btn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
+                if(btn) btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

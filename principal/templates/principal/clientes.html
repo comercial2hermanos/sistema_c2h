@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Clientes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light p-4">
+    <div class="container bg-white p-4 rounded shadow" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="text-success fw-bold">👥 GESTIÓN DE CLIENTES</h3>
+            <a href="{% url 'menu' %}" class="btn btn-secondary">⬅ Volver al Menú</a>
+        </div>
+
+        <div class="card mb-4 p-3 bg-light border-success">
+            <h5 class="mb-3">Nuevo Cliente</h5>
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" id="ruc" class="form-control" placeholder="RUC / Cédula *" required>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" id="nombre" class="form-control" placeholder="Nombre Completo *" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" id="telefono" class="form-control" placeholder="Teléfono">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-success w-100" onclick="guardarCliente()">💾 Guardar</button>
+                </div>
+            </div>
+            <div class="row g-2 mt-2">
+                <div class="col-12">
+                    <input type="text" id="direccion" class="form-control" placeholder="Dirección (Opcional)">
+                </div>
+            </div>
+        </div>
+
+        <input type="text" id="buscador" class="form-control mb-3" placeholder="🔍 Buscar cliente...">
+        
+        <table class="table table-hover">
+            <thead class="table-success">
+                <tr>
+                    <th>RUC/CI</th>
+                    <th>Nombre</th>
+                    <th>Teléfono</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in clientes %}
+                <tr class="fila-cliente">
+                    <td>{{ c.ruc_cedula }}</td>
+                    <td class="nombre-cli fw-bold">{{ c.nombre }}</td>
+                    <td>{{ c.telefono }}</td>
+                    <td>
+                        <button class="btn btn-outline-danger btn-sm" onclick="eliminar({{ c.id }})">🗑</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center">No hay clientes registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function guardarCliente() {
+            let data = {
+                ruc: document.getElementById('ruc').value,
+                nombre: document.getElementById('nombre').value,
+                telefono: document.getElementById('telefono').value,
+                direccion: document.getElementById('direccion').value
+            };
+            if(!data.ruc || !data.nombre) return alert("RUC y Nombre son obligatorios");
+
+            fetch('/guardar_cliente/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify(data)
+            }).then(r => r.json()).then(d => {
+                if(d.status === 'ok') { alert("Cliente Guardado"); location.reload(); }
+                else alert(d.mensaje);
+            });
+        }
+
+        function eliminar(id) {
+            if(confirm("¿Eliminar cliente?")) {
+                fetch('/eliminar_cliente/'+id+'/', { method: 'GET' })
+                .then(r => r.json()).then(d => {
+                    if(d.status === 'ok') location.reload();
+                    else alert(d.mensaje);
+                });
+            }
+        }
+
+        // Buscador
+        document.getElementById('buscador').addEventListener('keyup', function(e) {
+            let txt = e.target.value.toLowerCase();
+            document.querySelectorAll('.fila-cliente').forEach(row => {
+                let nombre = row.querySelector('.nombre-cli').innerText.toLowerCase();
+                row.style.display = nombre.includes(txt) ? '' : 'none';
+            });
+        });
+    </script>
+</body>
+</html>

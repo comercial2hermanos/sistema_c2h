@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reportes - Comercial 2 Hermanos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+</head>
+<body class="bg-light p-4">
+    
+    <div class="container" style="max-width: 1000px;">
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="fw-bold m-0"><i class="bi bi-graph-up-arrow"></i> Reportes Gerenciales</h2>
+                <p class="text-muted m-0">Área exclusiva de Administración</p>
+            </div>
+            <a href="{% url 'menu' %}" class="btn btn-outline-primary"><i class="bi bi-house-door-fill"></i> Volver al Menú</a>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <a href="{% url 'reporte_ventas' %}" class="text-decoration-none">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
+                        <div class="text-success mb-3"><i class="bi bi-cash-coin display-4"></i></div>
+                        <h4 class="fw-bold text-dark">Reporte de Ventas</h4>
+                        <p class="text-muted small">Consulta ventas por rango de fechas, totales y métodos de pago.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-md-4">
+                <a href="{% url 'reporte_inventario' %}" class="text-decoration-none">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
+                        <div class="text-primary mb-3"><i class="bi bi-box-seam display-4"></i></div>
+                        <h4 class="fw-bold text-dark">Inventario Valorizado</h4>
+                        <p class="text-muted small">Conoce cuánto dinero tienes en stock y tu ganancia estimada.</p>
+                    </div>
+                </a>
+            </div>
+
+            <div class="col-md-4">
+                <a href="{% url 'reporte_cierres' %}" class="text-decoration-none">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
+                        <div class="text-danger mb-3"><i class="bi bi-receipt display-4"></i></div>
+                        <h4 class="fw-bold text-dark">Historial de Cierres</h4>
+                        <p class="text-muted small">Auditoría de todos los cierres de caja realizados por los cajeros.</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .hover-effect:hover { transform: translateY(-5px); transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important; }
+    </style>
+</body>
+</html>

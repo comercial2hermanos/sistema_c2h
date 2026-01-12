@@ -1,0 +1,179 @@
+{% load l10n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cierre #{{ cierre.id }}</title>
+    <style>
+        /* CONFIGURACIÓN IMPRESORA TÉRMICA */
+        @media print {
+            @page { margin: 0; size: auto; }
+            body { margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+        }
+        
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            width: 75mm;
+            margin: auto;
+            color: #000;
+            background-color: #fff;
+        }
+
+        .ticket-content { padding: 10px 5px; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+
+        /* LÍNEAS */
+        .dashed-line {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+            width: 100%;
+        }
+
+        /* TABLA */
+        table { width: 100%; border-collapse: collapse; }
+        td { vertical-align: top; padding: 3px 0; }
+
+        .total-box {
+            border: 2px solid #000;
+            padding: 5px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .big-total { font-size: 18px; font-weight: bold; }
+        
+        /* ESTILO PARA EL DESGLOSE */
+        .sub-item {
+            font-size: 10px;
+            font-style: italic;
+            color: #444;
+        }
+        .sub-row td {
+            padding-top: 0;
+            padding-bottom: 2px;
+        }
+
+        /* BOTONES */
+        .btn-container {
+            margin-top: 20px;
+            text-align: center;
+            background: #f0f0f0;
+            padding: 20px;
+            border-top: 1px solid #ccc;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+        .btn-print { background-color: #dc3545; color: white; }
+        .btn-close { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="ticket-content">
+        
+        <div class="center">
+            <h3 style="margin: 0;">COMERCIAL 2 HERMANOS</h3>
+            <span style="font-size: 11px;">REPORTE DE CIERRE DE CAJA</span>
+        </div>
+        
+        <div class="dashed-line"></div>
+        
+        <table>
+            <tr>
+                <td><strong>Fecha:</strong></td>
+                <td class="right">{{ cierre.fecha_cierre|date:"d/m/Y H:i" }}</td>
+            </tr>
+            <tr>
+                <td><strong>Cajero:</strong></td>
+                <td class="right">{{ cierre.usuario.username|upper }}</td>
+            </tr>
+            <tr>
+                <td><strong>Nro. Cierre:</strong></td>
+                <td class="right">#{{ cierre.id }}</td>
+            </tr>
+        </table>
+
+        <div class="dashed-line"></div>
+
+        <table>
+            <tr>
+                <td>Transacciones:</td>
+                <td class="right">{{ cierre.cantidad_ventas }} mov.</td>
+            </tr>
+        </table>
+
+        <div class="dashed-line"></div>
+
+        <div style="margin-bottom: 5px; font-weight: bold; text-decoration: underline;">DINERO RECAUDADO:</div>
+        
+        <table>
+            <tr>
+                <td>EFECTIVO (TOTAL):</td>
+                <td class="right bold">$ {{ cierre.monto_efectivo|floatformat:2 }}</td>
+            </tr>
+            
+            <tr class="sub-row">
+                <td class="sub-item" style="padding-left: 10px;">↳ Ventas Directas:</td>
+                <td class="right sub-item">$ {{ ventas_efectivo|floatformat:2 }}</td>
+            </tr>
+            
+            <tr class="sub-row">
+                <td class="sub-item" style="padding-left: 10px;">↳ Cobros/Abonos:</td>
+                <td class="right sub-item">$ {{ abonos|floatformat:2 }}</td>
+            </tr>
+
+            <tr><td colspan="2" style="height: 5px;"></td></tr>
+
+            <tr>
+                <td>TARJETAS:</td>
+                <td class="right bold">$ {{ cierre.monto_tarjeta|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>TRANSFERENCIA:</td>
+                <td class="right bold">$ {{ cierre.monto_transferencia|floatformat:2 }}</td>
+            </tr>
+        </table>
+
+        <div class="total-box">
+            <div>INGRESO TOTAL TURNO</div>
+            <div class="big-total">$ {{ cierre.total_ventas|floatformat:2 }}</div>
+        </div>
+
+        <div class="dashed-line"></div>
+
+        <div class="center" style="margin-top: 40px;">
+            _________________________<br>
+            Firma Responsable
+        </div>
+
+        <div class="center" style="margin-top: 15px;">
+            <small>*** FIN DEL REPORTE ***</small>
+        </div>
+
+    </div>
+
+    <div class="btn-container no-print">
+        <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir Reporte</button>
+        <button onclick="window.close()" class="btn btn-close">Cerrar</button>
+    </div>
+
+    <script>
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500);
+        }
+    </script>
+
+</body>
+</html>

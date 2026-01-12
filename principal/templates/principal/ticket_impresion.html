@@ -1,0 +1,164 @@
+{% load l10n %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket #{{ venta.id }}</title>
+    <style>
+        /* CONFIGURACIÓN PARA IMPRESORA TÉRMICA */
+        @media print {
+            @page { margin: 0; size: auto; } /* Quita encabezados del navegador */
+            body { margin: 0; padding: 0; }
+            .no-print { display: none !important; } /* Oculta botones al imprimir */
+        }
+        
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Fuente monoespaciada para alinear números */
+            font-size: 12px;
+            width: 75mm; /* Ancho seguro para papel de 80mm */
+            margin: auto;
+            background-color: #fff;
+            color: #000;
+        }
+
+        .ticket-content {
+            padding: 10px 5px;
+        }
+
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .left { text-align: left; }
+        .bold { font-weight: bold; }
+
+        /* LÍNEAS SEPARADORAS */
+        .dashed-line {
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+            width: 100%;
+        }
+
+        /* TABLA DE PRODUCTOS */
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        th { text-transform: uppercase; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        td { vertical-align: top; padding: 2px 0; }
+        
+        /* Columnas */
+        .col-cant { width: 20%; text-align: left; }
+        .col-desc { width: 55%; text-align: left; }
+        .col-total { width: 25%; text-align: right; }
+
+        /* TOTALES */
+        .total-box {
+            margin-top: 10px;
+            text-align: right;
+        }
+        .gran-total {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* BOTONES DE PANTALLA */
+        .btn-container {
+            margin-top: 20px;
+            text-align: center;
+            background: #f0f0f0;
+            padding: 20px;
+            border-top: 1px solid #ccc;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+        .btn-print { background-color: #0d6efd; color: white; }
+        .btn-close { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="ticket-content">
+        
+        <div class="center">
+            <h3 style="margin: 0;">COMERCIAL 2 HERMANOS</h3>
+            <span style="font-size: 11px;">RUC: 0999999999001</span><br>
+            <span style="font-size: 11px;">Guayaquil, Ecuador</span><br>
+            <span style="font-size: 11px;">Tel: 099 123 4567</span>
+        </div>
+        
+        <div class="dashed-line"></div>
+        
+        <div>
+            <strong>Ticket:</strong> #{{ venta.id }}<br>
+            <strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}<br>
+            <strong>Cliente:</strong> {{ venta.cliente.nombre }}<br>
+            <strong>RUC/CI:</strong> {{ venta.cliente.ruc_cedula }}<br>
+            <strong>Cajero:</strong> {{ venta.usuario.username|upper }}
+        </div>
+        
+        <div class="dashed-line"></div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th class="col-cant">Cant.</th>
+                    <th class="col-desc">Descripción</th>
+                    <th class="col-total">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in venta.detalles.all %}
+                <tr>
+                    <td class="col-cant">
+                        {% if item.producto.es_granel %}
+                            {{ item.cantidad|floatformat:2 }} Lb
+                        {% else %}
+                            {{ item.cantidad|floatformat:0 }} Ud
+                        {% endif %}
+                    </td>
+                    <td class="col-desc">{{ item.producto.nombre }}</td>
+                    <td class="col-total">${{ item.subtotal|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <div class="dashed-line"></div>
+        
+        <div class="total-box">
+            <div class="gran-total">TOTAL: ${{ venta.total|floatformat:2 }}</div>
+            <div style="margin-top: 5px;">Forma de Pago: <strong>{{ venta.tipo_pago }}</strong></div>
+            
+            {% if venta.tipo_pago == 'CREDITO' %}
+                <div style="margin-top: 5px; font-weight: bold; border: 1px solid black; padding: 2px; text-align: center;">
+                    *** CUENTA POR COBRAR ***
+                </div>
+            {% endif %}
+        </div>
+        
+        <div class="dashed-line"></div>
+        
+        <div class="center" style="margin-top: 15px;">
+            <p style="margin: 0;">¡Gracias por su compra!</p>
+            <small>Sistema C2H</small>
+        </div>
+
+    </div>
+
+    <div class="btn-container no-print">
+        <button onclick="window.print()" class="btn btn-print">🖨️ Imprimir</button>
+        <button onclick="window.close()" class="btn btn-close">Cerrar</button>
+    </div>
+
+    <script>
+        // Intenta imprimir automáticamente al cargar
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 500); // Pequeña espera para asegurar que carguen los estilos
+        }
+    </script>
+</body>
+</html>

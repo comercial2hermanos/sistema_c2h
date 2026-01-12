@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket de Venta</title>
+    <style>
+        /* Ajuste para impresora térmica de 58mm */
+        body { 
+            font-family: 'Courier New', monospace; 
+            width: 58mm; 
+            margin: 0 auto; 
+            padding: 5px; 
+            font-size: 11px; 
+            background: white;
+        }
+        .centrado { text-align: center; }
+        .derecha { text-align: right; }
+        .linea { border-top: 1px dashed black; margin: 5px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 2px 0; }
+        .total { font-size: 14px; font-weight: bold; }
+        
+        /* Botón para volver (no sale impreso) */
+        @media print { .no-print { display: none; } }
+        .btn-volver { 
+            display: block; width: 100%; padding: 10px; 
+            background: #ccc; border: none; margin-top: 20px; cursor: pointer; 
+        }
+    </style>
+</head>
+<body onload="window.print()">
+    
+    <div class="centrado">
+        <h3 style="margin: 0;">COMERCIAL<br>2 HERMANOS</h3>
+        <small>RUC: 0999999999001</small><br>
+        <small>Guayaquil, Ecuador</small>
+    </div>
+
+    <div class="linea"></div>
+
+    <div>
+        <strong>Ticket:</strong> #000{{ venta.id }}<br>
+        <strong>Fecha:</strong> {{ venta.fecha|date:"d/m/Y H:i" }}<br>
+        <strong>Cliente:</strong> {{ venta.cliente.nombre }}<br>
+        <strong>Atendido por:</strong> {{ venta.usuario.username }}
+    </div>
+
+    <div class="linea"></div>
+
+    <table>
+        {% for d in detalles %}
+        <tr>
+            <td colspan="2">{{ d.producto.nombre }}</td>
+        </tr>
+        <tr>
+            <td>{{ d.cantidad }} x ${{ d.precio_unitario }}</td>
+            <td class="derecha">${{ d.subtotal }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <div class="linea"></div>
+
+    <table class="total">
+        <tr>
+            <td>TOTAL:</td>
+            <td class="derecha">${{ venta.total }}</td>
+        </tr>
+    </table>
+    
+    <div class="centrado" style="margin-top: 5px;">
+        <small>Pago: {{ venta.tipo_pago }}</small>
+    </div>
+
+    <br>
+    <div class="centrado">
+        *** GRACIAS POR SU COMPRA ***
+    </div>
+
+    <button class="btn-volver no-print" onclick="window.history.back()">⬅ Volver a Ventas</button>
+</body>
+</html>
