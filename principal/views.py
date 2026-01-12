@@ -44,13 +44,13 @@ def crear_cliente_rapido(request):
             # Crear el cliente
             nuevo_cliente = Cliente.objects.create(
                 ruc_cedula=data['ruc'],
-                nombre=data['nombre'].upper(), # Guardar siempre en mayúsculas
+                nombre=data['nombre'].upper(),
                 telefono=data.get('telefono', ''),
                 direccion=data.get('direccion', ''),
                 es_mayorista=data.get('es_mayorista', False)
             )
             
-            # Devolver los datos del nuevo cliente para usarlo en el frontend
+            # Devolver los datos para el frontend
             return JsonResponse({
                 'status': 'ok',
                 'cliente': {
@@ -183,7 +183,6 @@ def imprimir_reporte_cierre(request, id_cierre):
     cierre = get_object_or_404(CierreCaja, id=id_cierre)
     
     # --- LOGICA DE DESGLOSE PARA EL TICKET ---
-    # Buscamos el cierre anterior para determinar el rango de tiempo exacto
     cierre_anterior = CierreCaja.objects.filter(
         fecha_cierre__lt=cierre.fecha_cierre
     ).order_by('-fecha_cierre').first()
@@ -191,16 +190,13 @@ def imprimir_reporte_cierre(request, id_cierre):
     if cierre_anterior:
         fecha_inicio = cierre_anterior.fecha_cierre
     else:
-        # Si es el primero, desde el inicio del día
         fecha_inicio = cierre.fecha_cierre.replace(hour=0, minute=0, second=0)
 
-    # Calculamos abonos en ese rango específico
     total_abonos = Abono.objects.filter(
         fecha__gt=fecha_inicio,
         fecha__lte=cierre.fecha_cierre
     ).aggregate(Sum('monto'))['monto__sum'] or 0
 
-    # Separamos ventas de abonos
     total_abonos = Decimal(total_abonos)
     ventas_efectivo = cierre.monto_efectivo - total_abonos
 
