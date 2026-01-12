@@ -30,6 +30,40 @@ def vista_ventas(request):
     clientes = Cliente.objects.all().order_by('nombre')
     return render(request, 'principal/ventas.html', {'productos': productos, 'clientes': clientes})
 
+# --- NUEVA FUNCIÓN: CREAR CLIENTE RÁPIDO (AJAX) ---
+@login_required
+def crear_cliente_rapido(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            # Validación simple: Revisar si el RUC ya existe
+            if Cliente.objects.filter(ruc_cedula=data['ruc']).exists():
+                return JsonResponse({'status': 'error', 'mensaje': 'Ya existe un cliente con esa Cédula/RUC.'})
+            
+            # Crear el cliente
+            nuevo_cliente = Cliente.objects.create(
+                ruc_cedula=data['ruc'],
+                nombre=data['nombre'].upper(), # Guardar siempre en mayúsculas
+                telefono=data.get('telefono', ''),
+                direccion=data.get('direccion', ''),
+                es_mayorista=data.get('es_mayorista', False)
+            )
+            
+            # Devolver los datos del nuevo cliente para usarlo en el frontend
+            return JsonResponse({
+                'status': 'ok',
+                'cliente': {
+                    'id': nuevo_cliente.id,
+                    'nombre': nuevo_cliente.nombre,
+                    'ruc': nuevo_cliente.ruc_cedula,
+                    'es_mayorista': nuevo_cliente.es_mayorista
+                }
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'mensaje': str(e)})
+    return JsonResponse({'status': 'error', 'mensaje': 'Método no permitido'})
+
 # ... [GUARDAR VENTA] ...
 @login_required
 def guardar_venta(request):

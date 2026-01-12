@@ -25,6 +25,8 @@
         .stock-badge { position: absolute; top: 5px; right: 5px; font-size: 0.75rem; z-index: 10; }
         .money-input { font-size: 1.2rem; font-weight: bold; color: #198754; text-align: right; }
         .change-display { font-size: 1.2rem; font-weight: bold; color: #dc3545; text-align: right; }
+        /* Estilo para el cliente seleccionado */
+        .cliente-seleccionado { background-color: #0d6efd; color: white; padding: 8px; border-radius: 5px; margin-top: 5px; font-size: 0.95rem; display: flex; align-items: center; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -44,8 +46,8 @@
             
             <div class="col-md-8 col-productos">
                 <div class="input-group mb-3 shadow-sm">
-                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-primary"></i></span>
-                    <input type="text" id="buscador" class="form-control form-control-lg border-start-0" placeholder="Escanear código o buscar..." autocomplete="off">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-qr-code-scan text-primary"></i></span>
+                    <input type="text" id="buscador" class="form-control form-control-lg border-start-0" placeholder="Escanear producto..." autocomplete="off">
                 </div>
 
                 <div class="grid-scroll">
@@ -91,27 +93,41 @@
                             <h5 class="mb-0"><i class="bi bi-cart4"></i> Venta Actual</h5>
                             <span class="badge bg-warning text-dark" id="cart-count">0 items</span>
                         </div>
-                        <div class="row g-2">
-                            <div class="col-12">
-                                <select id="select-cliente" class="form-select form-select-sm fw-bold">
-                                    <option value="" data-mayorista="false">Seleccionar Cliente</option>
-                                    {% for c in clientes %}
-                                        <option value="{{ c.id }}" data-mayorista="{{ c.es_mayorista|yesno:'true,false' }}" {% if c.nombre|upper == 'CONSUMIDOR FINAL' %}selected{% endif %}>
-                                            {{ c.nombre }} ({{ c.ruc_cedula|default:'S/N' }}) {% if c.es_mayorista %}⭐VIP{% endif %}
-                                        </option>
-                                    {% empty %}
-                                        <option value="">No hay clientes registrados</option>
-                                    {% endfor %}
-                                </select>
+                        
+                        <div class="mb-2">
+                            <label class="small text-muted mb-1">Buscar Cliente (Enter para buscar)</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-secondary text-white"><i class="bi bi-person-search"></i></span>
+                                <input type="text" id="buscador-cliente" class="form-control fw-bold" placeholder="RUC o Nombre..." autocomplete="off">
+                                <button class="btn btn-light" type="button" onclick="buscarClienteManual()"><i class="bi bi-search"></i></button>
                             </div>
-                            <div class="col-12">
-                                <select id="select-pago" class="form-select form-select-sm fw-bold" onchange="verificarCredito()">
-                                    <option value="EFECTIVO">💵 Efectivo</option>
-                                    <option value="TARJETA">💳 Tarjeta</option>
-                                    <option value="TRANSFERENCIA">🏦 Transferencia</option>
-                                    <option value="CREDITO" class="text-danger">📕 Crédito / Fiado</option>
-                                </select>
+                        </div>
+
+                        <div class="col-12 mb-2">
+                            <select id="select-cliente" class="form-select form-select-sm fw-bold" style="display:none;">
+                                <option value="" data-mayorista="false">Seleccionar Cliente</option>
+                                {% for c in clientes %}
+                                    <option value="{{ c.id }}" data-mayorista="{{ c.es_mayorista|yesno:'true,false' }}" data-texto="{{ c.ruc_cedula }} {{ c.nombre|lower }}" {% if c.nombre|upper == 'CONSUMIDOR FINAL' %}selected{% endif %}>
+                                        {{ c.nombre }} ({{ c.ruc_cedula|default:'S/N' }})
+                                    </option>
+                                {% empty %}
+                                    <option value="">No hay clientes</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <div id="cliente-display" class="cliente-seleccionado shadow-sm">
+                                <div><i class="bi bi-person-check-fill"></i> <span id="nombre-cliente-display" class="fw-bold">CONSUMIDOR FINAL</span></div>
+                                <span id="badge-mayorista" class="badge bg-warning text-dark" style="display:none;">MAYORISTA</span>
                             </div>
+                        </div>
+
+                        <div class="col-12">
+                            <select id="select-pago" class="form-select form-select-sm fw-bold" onchange="verificarCredito()">
+                                <option value="EFECTIVO">💵 Efectivo</option>
+                                <option value="TARJETA">💳 Tarjeta</option>
+                                <option value="TRANSFERENCIA">🏦 Transferencia</option>
+                                <option value="CREDITO" class="text-danger">📕 Crédito / Fiado</option>
+                            </select>
                         </div>
                     </div>
 
@@ -121,7 +137,8 @@
                                 <tr>
                                     <th class="ps-3">Desc.</th>
                                     <th class="text-center">Cant.</th>
-                                    <th class="text-center">Precio</th> <th class="text-end pe-3">Total</th>
+                                    <th class="text-center">Precio</th>
+                                    <th class="text-end pe-3">Total</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -179,7 +196,6 @@
                         <span class="input-group-text">$</span>
                         <input type="number" id="input-dinero" class="form-control form-control-lg fw-bold text-success" placeholder="1.00" step="0.05">
                     </div>
-                    <small class="text-muted">Ej: $0.50 de tomate</small>
                 </div>
                 <div class="col-6">
                     <label class="fw-bold text-primary">Peso (Lb):</label>
@@ -187,18 +203,60 @@
                         <input type="number" id="input-peso" class="form-control form-control-lg fw-bold text-primary" placeholder="0.000" step="0.001">
                         <span class="input-group-text">Lb</span>
                     </div>
-                    <small class="text-muted">Se descontará del stock.</small>
                 </div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="button" class="btn btn-success fw-bold" onclick="confirmarGranel()">
-                <i class="bi bi-check-lg"></i> Agregar al Carrito
-            </button>
+            <button type="button" class="btn btn-success fw-bold" onclick="confirmarGranel()">Agregar</button>
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="modal fade" id="modalNuevoCliente" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-primary">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-person-plus-fill"></i> Registrar Nuevo Cliente</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formNuevoCliente">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">RUC / Cédula *</label>
+                            <input type="text" id="new-ruc" class="form-control" required placeholder="Ej: 0999999999">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre Completo *</label>
+                            <input type="text" id="new-nombre" class="form-control" required placeholder="Ej: Juan Pérez">
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label">Teléfono</label>
+                                <input type="text" id="new-telefono" class="form-control">
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label">¿Es Mayorista?</label>
+                                <div class="form-check form-switch pt-2">
+                                    <input class="form-check-input" type="checkbox" id="new-mayorista" style="width:40px; height:20px;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dirección</label>
+                            <textarea id="new-direccion" class="form-control" rows="2"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary fw-bold" onclick="guardarClienteRapido()">
+                        <i class="bi bi-save"></i> Guardar y Usar
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -206,34 +264,132 @@
     <script>
         let carrito = {}; 
         let productoActualGranel = null; 
-        let clienteEsMayorista = false; // Variable para controlar precios especiales
+        let clienteEsMayorista = false; 
 
         const modalGranel = new bootstrap.Modal(document.getElementById('modalGranel'));
+        const modalNuevoCliente = new bootstrap.Modal(document.getElementById('modalNuevoCliente'));
 
-        // === EVENTOS INICIALES ===
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('buscador').focus();
-            verificarClienteMayorista(); // Chequear estado inicial
+            actualizarVisualizadorCliente(); // Cargar consumidor final al inicio
         });
 
-        // DETECTAR CAMBIO DE CLIENTE
-        document.getElementById('select-cliente').addEventListener('change', verificarClienteMayorista);
+        // ============================================
+        // NUEVA LÓGICA DE BÚSQUEDA DE CLIENTES
+        // ============================================
+        
+        document.getElementById('buscador-cliente').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') buscarClienteManual();
+        });
 
-        function verificarClienteMayorista() {
+        function buscarClienteManual() {
+            let texto = document.getElementById('buscador-cliente').value.toLowerCase().trim();
+            if(!texto) return;
+
+            let select = document.getElementById('select-cliente');
+            let opciones = Array.from(select.options);
+            
+            // Buscar coincidencia en el texto (RUC o Nombre)
+            let encontrado = opciones.find(opt => {
+                let data = opt.getAttribute('data-texto') || "";
+                return data.includes(texto);
+            });
+
+            if(encontrado) {
+                // Si existe, lo seleccionamos
+                select.value = encontrado.value;
+                actualizarVisualizadorCliente(); // Actualiza el cuadrito azul y la variable mayorista
+                document.getElementById('buscador-cliente').value = ''; // Limpiar
+                Swal.fire({toast:true, icon:'success', title:'Cliente encontrado', position:'top-end', timer:1500, showConfirmButton:false});
+            } else {
+                // Si NO existe, preguntar si crear
+                Swal.fire({
+                    title: 'Cliente no encontrado',
+                    text: `No existe "${texto}". ¿Desea registrarlo ahora?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, Registrar',
+                    cancelButtonText: 'No'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Abrir modal y pre-llenar datos si parece cédula o nombre
+                        document.getElementById('formNuevoCliente').reset();
+                        if(!isNaN(texto) && texto.length >= 10) {
+                            document.getElementById('new-ruc').value = texto;
+                        } else {
+                            document.getElementById('new-nombre').value = texto.toUpperCase();
+                        }
+                        modalNuevoCliente.show();
+                        setTimeout(() => document.getElementById('new-ruc').focus(), 500);
+                    }
+                });
+            }
+        }
+
+        function guardarClienteRapido() {
+            let ruc = document.getElementById('new-ruc').value;
+            let nombre = document.getElementById('new-nombre').value;
+            let telefono = document.getElementById('new-telefono').value;
+            let direccion = document.getElementById('new-direccion').value;
+            let mayorista = document.getElementById('new-mayorista').checked;
+
+            if(!ruc || !nombre) return Swal.fire('Error', 'RUC y Nombre son obligatorios', 'error');
+
+            fetch("{% url 'crear_cliente_rapido' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+                body: JSON.stringify({ ruc, nombre, telefono, direccion, es_mayorista: mayorista })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'ok') {
+                    // Crear la opción en el select dinámicamente
+                    let select = document.getElementById('select-cliente');
+                    let option = document.createElement("option");
+                    option.value = data.cliente.id;
+                    option.text = `${data.cliente.nombre} (${data.cliente.ruc})`;
+                    option.setAttribute('data-mayorista', data.cliente.es_mayorista ? 'true' : 'false');
+                    option.setAttribute('data-texto', `${data.cliente.ruc} ${data.cliente.nombre.toLowerCase()}`);
+                    
+                    select.add(option);
+                    select.value = data.cliente.id; // Seleccionar el nuevo
+                    
+                    actualizarVisualizadorCliente();
+                    modalNuevoCliente.hide();
+                    Swal.fire('Guardado', 'Cliente registrado y seleccionado', 'success');
+                } else {
+                    Swal.fire('Error', data.mensaje, 'error');
+                }
+            });
+        }
+
+        function actualizarVisualizadorCliente() {
             let select = document.getElementById('select-cliente');
             let opcion = select.options[select.selectedIndex];
             
-            // Leemos el atributo data-mayorista del HTML
-            let esVip = (opcion.getAttribute('data-mayorista') === 'true');
+            // Mostrar nombre visualmente
+            document.getElementById('nombre-cliente-display').innerText = opcion.text;
             
+            // Lógica Mayorista
+            let esVip = (opcion.getAttribute('data-mayorista') === 'true');
+            let badge = document.getElementById('badge-mayorista');
+            
+            if (esVip) {
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+
             if (esVip !== clienteEsMayorista) {
                 clienteEsMayorista = esVip;
-                if(clienteEsMayorista) {
-                    Swal.fire({toast:true, icon:'info', title:'Modo Mayorista Activado', text:'Precios editables', position:'top-end', timer:2000, showConfirmButton:false});
-                }
-                renderizarTabla(); // Re-renderizar para habilitar/deshabilitar inputs de precio
+                if(clienteEsMayorista) Swal.fire({toast:true, icon:'info', title:'Precios Mayorista Activados', position:'top-end', timer:2000, showConfirmButton:false});
+                renderizarTabla();
             }
         }
+
+        // ============================================
+        // LÓGICA DE PRODUCTOS (IGUAL QUE ANTES)
+        // ============================================
 
         document.getElementById('buscador').addEventListener('keyup', function(e) {
             let texto = e.target.value.toLowerCase();
@@ -255,101 +411,64 @@
             });
         });
 
-        // === LÓGICA DE AGREGAR (Ahora recibe Costo) ===
         function agregarAlCarrito(id, nombre, precio, stockMax, esGranel, costo) {
             stockMax = parseFloat(stockMax);
             costo = parseFloat(costo);
             
-            // 1. Productos normales
             if (esGranel === false) {
                 if (stockMax <= 0) return Swal.fire({toast:true, icon:'error', title:'¡Agotado!', showConfirmButton:false, timer:1000});
                 
                 if (carrito[id]) {
-                    if (carrito[id].cantidad + 1 > stockMax) {
-                        return Swal.fire({toast:true, icon:'warning', title:'Stock Máximo Alcanzado', timer:1000});
-                    }
+                    if (carrito[id].cantidad + 1 > stockMax) return Swal.fire({toast:true, icon:'warning', title:'Stock Máximo', timer:1000});
                     carrito[id].cantidad++;
-                    // Recalcular subtotal con el precio que tenga (puede haber sido editado)
                     carrito[id].subtotal = carrito[id].cantidad * carrito[id].precio;
                 } else {
-                    carrito[id] = { 
-                        nombre: nombre, 
-                        precio: parseFloat(precio), 
-                        costo: costo, // Guardamos el costo para validar después
-                        cantidad: 1, 
-                        subtotal: parseFloat(precio), 
-                        stockMax: stockMax, 
-                        esGranel: false 
-                    };
+                    carrito[id] = { nombre, precio: parseFloat(precio), costo, cantidad: 1, subtotal: parseFloat(precio), stockMax, esGranel: false };
                 }
                 renderizarTabla();
-            } 
-            // 2. Productos Granel
-            else {
+            } else {
                 productoActualGranel = { id, nombre, precio, stockMax, costo };
                 document.getElementById('granel-nombre').innerText = nombre;
                 document.getElementById('granel-precio').innerText = precio.toFixed(2);
                 document.getElementById('input-dinero').value = ''; 
                 document.getElementById('input-peso').value = '';   
-                
                 modalGranel.show();
                 setTimeout(() => document.getElementById('input-dinero').focus(), 500);
             }
         }
 
-        // === CALCULADORA MODAL GRANEL ===
+        // ... [Calculadora Granel] ...
         document.getElementById('input-dinero').addEventListener('input', function(e) {
             let dinero = parseFloat(e.target.value);
-            let precio = productoActualGranel.precio;
-            if (!isNaN(dinero) && precio > 0) {
-                let peso = dinero / precio;
-                document.getElementById('input-peso').value = peso.toFixed(3);
+            if (!isNaN(dinero) && productoActualGranel.precio > 0) {
+                document.getElementById('input-peso').value = (dinero / productoActualGranel.precio).toFixed(3);
             }
         });
-
         document.getElementById('input-peso').addEventListener('input', function(e) {
             let peso = parseFloat(e.target.value);
-            let precio = productoActualGranel.precio;
             if (!isNaN(peso)) {
-                let dinero = peso * precio;
-                document.getElementById('input-dinero').value = dinero.toFixed(2);
+                document.getElementById('input-dinero').value = (peso * productoActualGranel.precio).toFixed(2);
             }
         });
 
         function confirmarGranel() {
             let peso = parseFloat(document.getElementById('input-peso').value);
             let dinero = parseFloat(document.getElementById('input-dinero').value);
-            
-            if (!peso || peso <= 0) return Swal.fire('Ingrese un valor válido', '', 'warning');
+            if (!peso || peso <= 0) return Swal.fire('Valor inválido', '', 'warning');
             
             let id = productoActualGranel.id;
+            if (carrito[id] && (carrito[id].cantidad + peso) > productoActualGranel.stockMax) return Swal.fire('Stock insuficiente', '', 'warning');
             
-            if (carrito[id] && (carrito[id].cantidad + peso) > productoActualGranel.stockMax) {
-                return Swal.fire('Stock insuficiente', `Solo quedan ${productoActualGranel.stockMax} disponibles`, 'warning');
-            } else if (!carrito[id] && peso > productoActualGranel.stockMax) {
-                return Swal.fire('Stock insuficiente', `Solo quedan ${productoActualGranel.stockMax} disponibles`, 'warning');
-            }
-
             if (carrito[id]) {
                 carrito[id].cantidad += peso;
-                // Calculamos subtotal basado en el precio actual (que podría ser editado)
                 carrito[id].subtotal = carrito[id].cantidad * carrito[id].precio;
             } else {
-                carrito[id] = { 
-                    nombre: productoActualGranel.nombre, 
-                    precio: productoActualGranel.precio, 
-                    costo: productoActualGranel.costo,
-                    cantidad: peso, 
-                    subtotal: dinero, 
-                    stockMax: productoActualGranel.stockMax,
-                    esGranel: true 
-                };
+                carrito[id] = { nombre: productoActualGranel.nombre, precio: productoActualGranel.precio, costo: productoActualGranel.costo, cantidad: peso, subtotal: dinero, stockMax: productoActualGranel.stockMax, esGranel: true };
             }
             modalGranel.hide();
             renderizarTabla();
         }
 
-        // === RENDERIZADO DEL TICKET (CON EDICIÓN DE PRECIOS) ===
         function renderizarTabla() {
             let tbody = document.getElementById('tabla-carrito');
             tbody.innerHTML = '';
@@ -363,51 +482,27 @@
                 total += item.subtotal;
                 count++; 
 
-                let cantidadDisplay, unidadDisplay;
-                if (item.esGranel) {
-                    cantidadDisplay = item.cantidad.toFixed(2);
-                    unidadDisplay = "Lb";
-                } else {
-                    cantidadDisplay = item.cantidad.toFixed(0);
-                    unidadDisplay = "Ud";
-                }
-
-                // Lógica de visualización del PRECIO
+                let cantidadDisplay = item.esGranel ? item.cantidad.toFixed(2) + " Lb" : item.cantidad.toFixed(0) + " Ud";
+                
                 let precioDisplay;
                 if (clienteEsMayorista) {
-                    // Si es VIP, mostramos INPUT
                     precioDisplay = `<input type="number" class="form-control form-control-sm text-center p-0 mx-auto text-primary fw-bold" 
                                       value="${item.precio.toFixed(2)}" step="0.01"
                                       onchange="cambiarPrecio(${id}, this.value)" style="width: 70px;">`;
                 } else {
-                    // Si es normal, mostramos TEXTO
                     precioDisplay = `$${item.precio.toFixed(2)}`;
                 }
 
-                let row = `<tr>
-                    <td class="ps-3 align-middle">
-                        <small class="fw-bold">${item.nombre}</small>
-                        ${item.esGranel ? '<br><span class="badge bg-warning text-dark" style="font-size:0.6em">Granel</span>' : ''}
-                    </td>
+                tbody.innerHTML += `<tr>
+                    <td class="ps-3 align-middle"><small class="fw-bold">${item.nombre}</small></td>
                     <td class="text-center align-middle">
-                        <div class="d-flex justify-content-center align-items-center gap-1">
-                        ${item.esGranel 
-                            ? `<span class="fw-bold text-primary">${cantidadDisplay} ${unidadDisplay}</span>` 
-                            : `<input type="number" class="form-control form-control-sm text-center p-0 mx-auto" 
-                               value="${cantidadDisplay}" min="1" max="${item.stockMax}" 
-                               onchange="cambiarCantidad(${id}, this.value)" style="width: 50px;">`
-                        }
-                        </div>
+                         ${item.esGranel ? `<span class="fw-bold text-primary">${cantidadDisplay}</span>` 
+                         : `<input type="number" class="form-control form-control-sm text-center mx-auto" value="${item.cantidad}" onchange="cambiarCantidad(${id}, this.value)" style="width: 50px;">`}
                     </td>
-                    <td class="text-center align-middle">
-                        ${precioDisplay}
-                    </td>
+                    <td class="text-center align-middle">${precioDisplay}</td>
                     <td class="text-end pe-3 fw-bold align-middle">$${item.subtotal.toFixed(2)}</td>
-                    <td class="text-center align-middle">
-                        <i class="bi bi-x-circle text-danger" style="cursor: pointer;" onclick="eliminarItem(${id})"></i>
-                    </td>
+                    <td class="text-center align-middle"><i class="bi bi-x-circle text-danger" style="cursor: pointer;" onclick="eliminarItem(${id})"></i></td>
                 </tr>`;
-                tbody.innerHTML += row;
             }
 
             document.getElementById('empty-msg').style.display = hasItems ? 'none' : 'block';
@@ -416,40 +511,21 @@
             calcularCambio();
         }
 
-        // === FUNCIÓN NUEVA: CAMBIAR PRECIO CON ALERTA DE COSTO ===
         window.cambiarPrecio = function(id, nuevoPrecioVal) {
             let nuevoPrecio = parseFloat(nuevoPrecioVal);
             let item = carrito[id];
+            if (isNaN(nuevoPrecio) || nuevoPrecio < 0) { renderizarTabla(); return Swal.fire('Precio Inválido', '', 'error'); }
 
-            if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
-                renderizarTabla(); // Restaurar valor anterior
-                return Swal.fire('Precio Inválido', '', 'error');
-            }
-
-            // ALERTA DE PÉRDIDA
             if (nuevoPrecio < item.costo) {
                 Swal.fire({
-                    title: '¡ALERTA DE PÉRDIDA! 📉',
-                    html: `El precio ingresado <b>($${nuevoPrecio.toFixed(2)})</b> es menor al costo del producto <b>($${item.costo.toFixed(2)})</b>.<br>¿Desea autorizar esta venta especial?`,
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Sí, Autorizar',
-                    cancelButtonText: 'Corregir Precio'
+                    title: '¡ALERTA DE PÉRDIDA!',
+                    text: `El precio ($${nuevoPrecio}) es menor al costo ($${item.costo}). ¿Autorizar?`,
+                    icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, Autorizar'
                 }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Autorizado
-                        item.precio = nuevoPrecio;
-                        item.subtotal = item.cantidad * nuevoPrecio;
-                        renderizarTabla();
-                    } else {
-                        // Cancelado, se restaura la tabla con el precio viejo
-                        renderizarTabla();
-                    }
+                    if (result.isConfirmed) { item.precio = nuevoPrecio; item.subtotal = item.cantidad * nuevoPrecio; renderizarTabla(); }
+                    else { renderizarTabla(); }
                 });
             } else {
-                // Precio normal (con ganancia)
                 item.precio = nuevoPrecio;
                 item.subtotal = item.cantidad * nuevoPrecio;
                 renderizarTabla();
@@ -457,65 +533,35 @@
         }
 
         window.cambiarCantidad = function(id, val) {
-            val = parseFloat(val);
             let item = carrito[id];
-            if (val < 1 || isNaN(val)) val = 1;
-            
-            if (val > item.stockMax) { 
-                val = item.stockMax; 
-                Swal.fire({toast:true, icon:'info', title:'Stock máximo', position:'top-end', showConfirmButton:false, timer:1000}); 
-            }
-            
-            item.cantidad = val;
-            item.subtotal = val * item.precio;
+            let cantidad = parseFloat(val);
+            if(cantidad < 1) cantidad = 1;
+            if(cantidad > item.stockMax) { cantidad = item.stockMax; Swal.fire({toast:true, title:'Stock Máximo', icon:'info'}); }
+            item.cantidad = cantidad;
+            item.subtotal = item.cantidad * item.precio;
             renderizarTabla();
         }
 
-        window.eliminarItem = function(id) { 
-            delete carrito[id]; 
-            renderizarTabla(); 
-        }
+        window.eliminarItem = function(id) { delete carrito[id]; renderizarTabla(); }
 
         window.confirmarCancelar = function() {
-            if (Object.keys(carrito).length === 0) return;
-            Swal.fire({
-                title: '¿Cancelar Venta?', text: "Se limpiará el ticket actual.", icon: 'warning',
-                showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sí, cancelar'
-            }).then((result) => { if (result.isConfirmed) limpiarCarrito(); });
+            if (Object.keys(carrito).length > 0) Swal.fire({title:'¿Cancelar?', showCancelButton:true, confirmButtonText:'Sí'}).then(r => {if(r.isConfirmed) limpiarCarrito()});
         }
-
-        function limpiarCarrito() {
-            carrito = {};
-            renderizarTabla();
-            document.getElementById('monto-recibido').value = '';
-            document.getElementById('monto-cambio').innerText = '0.00';
-            document.getElementById('buscador').value = '';
-            document.getElementById('buscador').focus();
-        }
+        function limpiarCarrito() { carrito={}; renderizarTabla(); document.getElementById('monto-recibido').value=''; document.getElementById('buscador').value=''; }
 
         window.verificarCredito = function() {
             let pago = document.getElementById('select-pago').value;
-            let inputRecibido = document.getElementById('monto-recibido');
-            if (pago === 'CREDITO') {
-                inputRecibido.disabled = true;
-                inputRecibido.value = '';
-                document.getElementById('monto-cambio').innerText = '0.00';
-            } else {
-                inputRecibido.disabled = false;
-            }
+            let input = document.getElementById('monto-recibido');
+            if(pago === 'CREDITO') { input.disabled = true; input.value = ''; } else { input.disabled = false; }
+            calcularCambio();
         }
 
         window.calcularCambio = function() {
             let total = parseFloat(document.getElementById('total-venta').innerText);
             let recibido = parseFloat(document.getElementById('monto-recibido').value);
-            let display = document.getElementById('monto-cambio');
-            
-            if (document.getElementById('select-pago').value === 'CREDITO') return;
-
-            if (isNaN(recibido)) { display.innerText = "0.00"; display.style.color = "#dc3545"; return; }
-            let cambio = recibido - total;
-            display.innerText = cambio.toFixed(2);
-            display.style.color = (cambio >= 0) ? "#198754" : "#dc3545";
+            if(document.getElementById('select-pago').value === 'CREDITO') { document.getElementById('monto-cambio').innerText = '0.00'; return; }
+            if(isNaN(recibido)) { document.getElementById('monto-cambio').innerText = '0.00'; return; }
+            document.getElementById('monto-cambio').innerText = (recibido - total).toFixed(2);
         }
 
         window.procesarVenta = function() {
@@ -526,51 +572,28 @@
 
             if (Object.keys(carrito).length === 0) return Swal.fire('Carrito vacío', '', 'warning');
             if (!clienteId) return Swal.fire('Seleccione un Cliente', '', 'warning');
-            
-            if (metodoPago !== 'CREDITO' && !isNaN(recibido) && recibido < total && metodoPago === 'EFECTIVO') {
-                return Swal.fire('Dinero insuficiente', 'El monto recibido es menor al total', 'error');
-            }
+            if (metodoPago !== 'CREDITO' && metodoPago !== 'TRANSFERENCIA' && (isNaN(recibido) || recibido < total)) return Swal.fire('Dinero insuficiente', '', 'error');
 
             let btn = document.getElementById('btn-confirmar');
-            let textoOriginal = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+            btn.disabled = true; btn.innerHTML = 'Procesando...';
 
             fetch("{% url 'guardar_venta' %}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
+                method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": "{{ csrf_token }}" },
                 body: JSON.stringify({ cliente_id: clienteId, metodo_pago: metodoPago, productos: carrito })
             })
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'ok') {
-                    Swal.fire({
-                        title: '¡Venta Exitosa!', text: `Ticket #${data.id_venta} generado.`, icon: 'success',
-                        showDenyButton: true, confirmButtonText: 'Imprimir Ticket', denyButtonText: 'Nueva Venta',
-                    }).then((result) => {
+                    Swal.fire({title: '¡Venta Exitosa!', icon: 'success', showDenyButton: true, confirmButtonText: 'Imprimir Ticket', denyButtonText: 'Nueva Venta'})
+                    .then((result) => {
                         if (result.isConfirmed) { window.open(`/imprimir_ticket/${data.id_venta}/`, '_blank'); location.reload(); }
                         else { location.reload(); }
                     });
-                } else { 
-                    Swal.fire('Error', data.mensaje, 'error');
-                    btn.disabled = false;
-                    btn.innerHTML = textoOriginal;
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                Swal.fire('Error de Conexión', '', 'error');
-                btn.disabled = false;
-                btn.innerHTML = textoOriginal;
+                } else { Swal.fire('Error', data.mensaje, 'error'); btn.disabled = false; btn.innerHTML = 'CONFIRMAR (F2)'; }
             });
         }
         
-        document.addEventListener('keydown', function(event) { 
-            if (event.key === 'F2') {
-                event.preventDefault();
-                procesarVenta(); 
-            }
-        });
+        document.addEventListener('keydown', function(event) { if (event.key === 'F2') { event.preventDefault(); procesarVenta(); } });
     </script>
 </body>
 </html>
