@@ -8,8 +8,8 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.contrib.auth.models import User 
-from .models import Producto, Cliente, Venta, DetalleVenta, Compra, DetalleCompra, CierreCaja, Abono
-from .forms import ClienteForm, UsuarioForm
+from .models import Producto, Cliente, Venta, DetalleVenta, Compra, DetalleCompra, CierreCaja, Abono, Gasto
+from .forms import ClienteForm, UsuarioForm, GastoForm
 
 # ... [DASHBOARD Y MENÚ] ...
 @login_required
@@ -30,18 +30,15 @@ def vista_ventas(request):
     clientes = Cliente.objects.all().order_by('nombre')
     return render(request, 'principal/ventas.html', {'productos': productos, 'clientes': clientes})
 
-# --- NUEVA FUNCIÓN: CREAR CLIENTE RÁPIDO (AJAX) ---
+# --- CLIENTE RÁPIDO (AJAX) ---
 @login_required
 def crear_cliente_rapido(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            
-            # Validación simple: Revisar si el RUC ya existe
             if Cliente.objects.filter(ruc_cedula=data['ruc']).exists():
                 return JsonResponse({'status': 'error', 'mensaje': 'Ya existe un cliente con esa Cédula/RUC.'})
             
-            # Crear el cliente
             nuevo_cliente = Cliente.objects.create(
                 ruc_cedula=data['ruc'],
                 nombre=data['nombre'].upper(),
@@ -49,17 +46,7 @@ def crear_cliente_rapido(request):
                 direccion=data.get('direccion', ''),
                 es_mayorista=data.get('es_mayorista', False)
             )
-            
-            # Devolver los datos para el frontend
-            return JsonResponse({
-                'status': 'ok',
-                'cliente': {
-                    'id': nuevo_cliente.id,
-                    'nombre': nuevo_cliente.nombre,
-                    'ruc': nuevo_cliente.ruc_cedula,
-                    'es_mayorista': nuevo_cliente.es_mayorista
-                }
-            })
+            return JsonResponse({'status': 'ok', 'cliente': {'id': nuevo_cliente.id, 'nombre': nuevo_cliente.nombre, 'ruc': nuevo_cliente.ruc_cedula, 'es_mayorista': nuevo_cliente.es_mayorista}})
         except Exception as e:
             return JsonResponse({'status': 'error', 'mensaje': str(e)})
     return JsonResponse({'status': 'error', 'mensaje': 'Método no permitido'})
@@ -112,7 +99,32 @@ def imprimir_ticket(request, id_venta):
     venta = get_object_or_404(Venta, id=id_venta)
     return render(request, 'principal/ticket_impresion.html', {'venta': venta})
 
-# ... [CIERRE DE CAJA] ...
+# ==========================================
+# GASTOS Y CIERRE DE CAJA
+# ==========================================
+
+@login_required
+def listar_gastos(request):
+    ultimo_cierre = CierreCaja.objects.order_by('-fecha_cierre').first()
+    fecha_inicio = ultimo_cierre.fecha_cierre if ultimo_cierre else timezone.now().replace(hour=0, minute=0, second=0)
+    
+    gastos = Gasto.objects.filter(fecha__gt=fecha_inicio).order_by('-fecha')
+    total_gastos = gastos.aggregate(Sum('monto'))['monto__sum'] or 0
+    
+    form = GastoForm()
+    return render(request, 'principal/gastos.html', {'gastos': gastos, 'total_gastos': total_gastos, 'form': form})
+
+@login_required
+def guardar_gasto(request):
+    if request.method == 'POST':
+        form = GastoForm(request.POST)
+        if form.is_valid():
+            gasto = form.save(commit=False)
+            gasto.usuario = request.user
+            gasto.save()
+            messages.success(request, 'Gasto registrado correctamente.')
+    return redirect('listar_gastos')
+
 @login_required
 def vista_cierre(request):
     ultimo_cierre = CierreCaja.objects.order_by('-fecha_cierre').first()
@@ -120,30 +132,31 @@ def vista_cierre(request):
     
     ventas_rango = Venta.objects.filter(fecha__gt=fecha_inicio)
     
-    # Calculamos abonos realizados en este periodo
+    # 1. Sumar Abonos y Gastos
     abonos_hoy = Abono.objects.filter(fecha__gt=fecha_inicio).aggregate(Sum('monto'))['monto__sum'] or 0
+    gastos_hoy = Gasto.objects.filter(fecha__gt=fecha_inicio).aggregate(Sum('monto'))['monto__sum'] or 0
 
-    total_efectivo = ventas_rango.filter(tipo_pago='EFECTIVO').aggregate(Sum('total'))['total__sum'] or 0
+    # 2. Sumar Ventas por tipo
+    total_efectivo_ventas = ventas_rango.filter(tipo_pago='EFECTIVO').aggregate(Sum('total'))['total__sum'] or 0
     total_tarjeta = ventas_rango.filter(tipo_pago='TARJETA').aggregate(Sum('total'))['total__sum'] or 0
     total_transferencia = ventas_rango.filter(tipo_pago='TRANSFERENCIA').aggregate(Sum('total'))['total__sum'] or 0
     
-    # El efectivo en caja es la suma de Ventas en Efectivo + Abonos recibidos
-    total_efectivo_con_abonos = total_efectivo + abonos_hoy
+    # 3. CÁLCULO FINAL DE EFECTIVO EN CAJA
+    efectivo_en_caja = (total_efectivo_ventas + abonos_hoy) - gastos_hoy
     
-    gran_total = total_efectivo_con_abonos + total_tarjeta + total_transferencia
+    gran_total = total_efectivo_ventas + total_tarjeta + total_transferencia
     cantidad = ventas_rango.count()
 
     contexto = {
         'fecha_hora': timezone.now(),
         'usuario': request.user,
         'cantidad_ventas': cantidad,
-        'efectivo': total_efectivo_con_abonos,
-        # Pasamos el desglose al template para mostrarlo en pantalla
-        'efectivo_ventas': total_efectivo,
+        'efectivo_en_caja': efectivo_en_caja,
+        'efectivo_ventas': total_efectivo_ventas,
         'abonos_hoy': abonos_hoy,
+        'gastos_hoy': gastos_hoy,
         'tarjeta': total_tarjeta,
         'transferencia': total_transferencia,
-        'gran_total': gran_total,
         'ultimo_cierre': ultimo_cierre.fecha_cierre if ultimo_cierre else "Nunca"
     }
     return render(request, 'principal/cierre.html', contexto)
@@ -157,21 +170,23 @@ def procesar_cierre_caja(request):
             
             ventas = Venta.objects.filter(fecha__gt=fecha_inicio)
             abonos = Abono.objects.filter(fecha__gt=fecha_inicio).aggregate(Sum('monto'))['monto__sum'] or 0
+            gastos = Gasto.objects.filter(fecha__gt=fecha_inicio).aggregate(Sum('monto'))['monto__sum'] or 0
             
-            t_efectivo = ventas.filter(tipo_pago='EFECTIVO').aggregate(Sum('total'))['total__sum'] or 0
+            t_efectivo_ventas = ventas.filter(tipo_pago='EFECTIVO').aggregate(Sum('total'))['total__sum'] or 0
             t_tarjeta = ventas.filter(tipo_pago='TARJETA').aggregate(Sum('total'))['total__sum'] or 0
             t_transf = ventas.filter(tipo_pago='TRANSFERENCIA').aggregate(Sum('total'))['total__sum'] or 0
             
-            t_efectivo_total = t_efectivo + abonos
-            t_total_general = t_efectivo_total + t_tarjeta + t_transf
+            efectivo_neto = (t_efectivo_ventas + abonos) - gastos
+            total_ventas_brutas = t_efectivo_ventas + t_tarjeta + t_transf
             cant = ventas.count()
 
             nuevo_cierre = CierreCaja.objects.create(
                 usuario=request.user, 
-                monto_efectivo=t_efectivo_total, 
+                monto_efectivo=efectivo_neto, 
                 monto_tarjeta=t_tarjeta,
                 monto_transferencia=t_transf, 
-                total_ventas=t_total_general, 
+                total_gastos=gastos,
+                total_ventas=total_ventas_brutas, 
                 cantidad_ventas=cant
             )
             return JsonResponse({'status': 'ok', 'id_cierre': nuevo_cierre.id})
@@ -181,30 +196,19 @@ def procesar_cierre_caja(request):
 @login_required
 def imprimir_reporte_cierre(request, id_cierre):
     cierre = get_object_or_404(CierreCaja, id=id_cierre)
-    
-    # --- LOGICA DE DESGLOSE PARA EL TICKET ---
-    cierre_anterior = CierreCaja.objects.filter(
-        fecha_cierre__lt=cierre.fecha_cierre
-    ).order_by('-fecha_cierre').first()
-    
-    if cierre_anterior:
-        fecha_inicio = cierre_anterior.fecha_cierre
-    else:
-        fecha_inicio = cierre.fecha_cierre.replace(hour=0, minute=0, second=0)
+    cierre_anterior = CierreCaja.objects.filter(fecha_cierre__lt=cierre.fecha_cierre).order_by('-fecha_cierre').first()
+    fecha_inicio = cierre_anterior.fecha_cierre if cierre_anterior else cierre.fecha_cierre.replace(hour=0, minute=0, second=0)
 
-    total_abonos = Abono.objects.filter(
-        fecha__gt=fecha_inicio,
-        fecha__lte=cierre.fecha_cierre
-    ).aggregate(Sum('monto'))['monto__sum'] or 0
-
+    total_abonos = Abono.objects.filter(fecha__gt=fecha_inicio, fecha__lte=cierre.fecha_cierre).aggregate(Sum('monto'))['monto__sum'] or 0
+    total_gastos = Gasto.objects.filter(fecha__gt=fecha_inicio, fecha__lte=cierre.fecha_cierre).aggregate(Sum('monto'))['monto__sum'] or 0
+    
     total_abonos = Decimal(total_abonos)
-    ventas_efectivo = cierre.monto_efectivo - total_abonos
-
-    context = {
-        'cierre': cierre,
-        'abonos': total_abonos,
-        'ventas_efectivo': ventas_efectivo
-    }
+    total_gastos = Decimal(total_gastos)
+    
+    # El monto efectivo guardado en CierreCaja ya tiene restado los gastos y sumado los abonos
+    # Solo los pasamos al contexto para desglose visual
+    
+    context = {'cierre': cierre, 'abonos': total_abonos, 'gastos': total_gastos}
     return render(request, 'principal/ticket_cierre.html', context)
 
 # ... [PRODUCTOS, COMPRAS Y GESTIÓN] ...
@@ -225,16 +229,7 @@ def crear_producto(request):
             data = json.loads(request.body)
             if Producto.objects.filter(codigo=data['codigo']).exists():
                 return JsonResponse({'status': 'error', 'mensaje': 'El código de barras ya existe'})
-            
-            Producto.objects.create(
-                codigo=data['codigo'],
-                nombre=data['nombre'],
-                es_granel=data.get('es_granel', False),
-                precio_costo=data['costo'],
-                precio_venta=data['precio'],
-                stock_actual=data['stock'],
-                stock_minimo=5
-            )
+            Producto.objects.create(codigo=data['codigo'], nombre=data['nombre'], es_granel=data.get('es_granel', False), precio_costo=data['costo'], precio_venta=data['precio'], stock_actual=data['stock'], stock_minimo=5)
             return JsonResponse({'status': 'ok'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'mensaje': str(e)})
@@ -250,14 +245,11 @@ def guardar_compra(request):
                 for p_id, info in datos['productos'].items():
                     producto = Producto.objects.select_for_update().get(id=p_id)
                     cantidad = Decimal(str(info['cantidad']))
-                    
                     producto.stock_actual += cantidad
                     producto.precio_costo = float(info['costo'])
                     producto.save()
-                    
                     DetalleCompra.objects.create(compra=compra, producto=producto, cantidad=cantidad, costo_unitario=info['costo'])
                     total_compra += (float(cantidad) * float(info['costo']))
-                
                 compra.total = total_compra
                 compra.save()
             return JsonResponse({'status': 'ok'})
@@ -372,7 +364,7 @@ def eliminar_usuario(request, user_id):
     return redirect('gestion_usuarios')
 
 # ==========================================
-# REPORTES
+# REPORTES Y CUENTAS POR COBRAR
 # ==========================================
 
 @user_passes_test(es_admin, login_url='/')
@@ -384,45 +376,23 @@ def reporte_ventas(request):
     hoy = timezone.now()
     fecha_inicio = request.GET.get('inicio', hoy.replace(day=1).strftime('%Y-%m-%d'))
     fecha_fin = request.GET.get('fin', hoy.strftime('%Y-%m-%d'))
-
     ventas = Venta.objects.filter(fecha__date__range=[fecha_inicio, fecha_fin]).order_by('-fecha')
-    
     total_vendido = ventas.aggregate(Sum('total'))['total__sum'] or 0
     cantidad_ventas = ventas.count()
     por_metodo = ventas.values('tipo_pago').annotate(total=Sum('total')).order_by('-total')
-
-    context = {
-        'ventas': ventas,
-        'fecha_inicio': fecha_inicio,
-        'fecha_fin': fecha_fin,
-        'total_vendido': total_vendido,
-        'cantidad_ventas': cantidad_ventas,
-        'por_metodo': por_metodo
-    }
+    context = {'ventas': ventas, 'fecha_inicio': fecha_inicio, 'fecha_fin': fecha_fin, 'total_vendido': total_vendido, 'cantidad_ventas': cantidad_ventas, 'por_metodo': por_metodo}
     return render(request, 'principal/reporte_ventas.html', context)
 
 @user_passes_test(es_admin, login_url='/')
 def reporte_inventario(request):
     productos = Producto.objects.all().order_by('nombre')
-    
-    total_items = 0
-    valor_costo_total = 0
-    valor_venta_total = 0
-
+    total_items = 0; valor_costo_total = 0; valor_venta_total = 0
     for p in productos:
         total_items += p.stock_actual
         valor_costo_total += (p.stock_actual * p.precio_costo)
         valor_venta_total += (p.stock_actual * p.precio_venta)
-
     ganancia_potencial = valor_venta_total - valor_costo_total
-
-    context = {
-        'productos': productos,
-        'total_items': total_items,
-        'valor_costo': valor_costo_total,
-        'valor_venta': valor_venta_total,
-        'ganancia': ganancia_potencial
-    }
+    context = {'productos': productos, 'total_items': total_items, 'valor_costo': valor_costo_total, 'valor_venta': valor_venta_total, 'ganancia': ganancia_potencial}
     return render(request, 'principal/reporte_inventario.html', context)
 
 @user_passes_test(es_admin, login_url='/')
@@ -430,19 +400,11 @@ def reporte_cierres(request):
     cierres = CierreCaja.objects.all().order_by('-fecha_cierre')
     return render(request, 'principal/reporte_cierres.html', {'cierres': cierres})
 
-# ==========================================
-# CUENTAS POR COBRAR
-# ==========================================
-
 @login_required
 def cuentas_por_cobrar(request):
     ventas_pendientes = Venta.objects.filter(tipo_pago='CREDITO', pagado=False).order_by('fecha')
     total_deuda = sum(v.saldo_pendiente() for v in ventas_pendientes)
-
-    return render(request, 'principal/cuentas_por_cobrar.html', {
-        'ventas': ventas_pendientes,
-        'total_por_cobrar': total_deuda
-    })
+    return render(request, 'principal/cuentas_por_cobrar.html', {'ventas': ventas_pendientes, 'total_por_cobrar': total_deuda})
 
 @login_required
 def guardar_abono(request):
@@ -452,14 +414,10 @@ def guardar_abono(request):
             venta_id = data.get('venta_id')
             monto = Decimal(str(data.get('monto')))
             nota = data.get('nota', '')
-
             venta = get_object_or_404(Venta, id=venta_id)
             saldo = venta.saldo_pendiente()
-            
-            # Tolerancia para errores de redondeo
             if monto > (saldo + Decimal('0.01')):
                 return JsonResponse({'status': 'error', 'mensaje': f'El monto excede la deuda actual (${saldo})'})
-
             Abono.objects.create(venta=venta, monto=monto, nota=nota)
             return JsonResponse({'status': 'ok'})
         except Exception as e:

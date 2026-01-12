@@ -1,22 +1,31 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Cliente
+from .models import Cliente, Gasto
 
 # --- FORMULARIO DE CLIENTES ---
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['ruc_cedula', 'nombre', 'telefono', 'direccion', 'es_mayorista'] # <--- Agregado
+        fields = ['ruc_cedula', 'nombre', 'telefono', 'direccion', 'es_mayorista']
         widgets = {
             'ruc_cedula': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'RUC o Cédula'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre Completo'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}),
             'direccion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Dirección'}),
-            # Checkbox estilizado
             'es_mayorista': forms.CheckboxInput(attrs={'class': 'form-check-input', 'style': 'width: 20px; height: 20px;'}),
         }
         labels = {
             'es_mayorista': '¿Es Cliente Especial / Mayorista? (Habilita cambio de precios)'
+        }
+
+# --- FORMULARIO DE GASTOS (NUEVO) ---
+class GastoForm(forms.ModelForm):
+    class Meta:
+        model = Gasto
+        fields = ['descripcion', 'monto']
+        widgets = {
+            'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Almuerzo, Pago Proveedor, Taxi...'}),
+            'monto': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00', 'step': '0.01'}),
         }
 
 # --- FORMULARIO DE USUARIOS ---

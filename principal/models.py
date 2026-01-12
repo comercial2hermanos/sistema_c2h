@@ -8,7 +8,6 @@ class Cliente(models.Model):
     nombre = models.CharField(max_length=100)
     direccion = models.CharField(max_length=200, blank=True)
     telefono = models.CharField(max_length=20, blank=True)
-    # NUEVO CAMPO: Identifica clientes especiales
     es_mayorista = models.BooleanField(default=False, verbose_name="¿Es Cliente Especial/Mayorista?")
     creado = models.DateTimeField(auto_now_add=True)
 
@@ -83,7 +82,17 @@ class Abono(models.Model):
             self.venta.pagado = True
             self.venta.save()
 
-# 5. COMPRAS
+# 5. GASTOS (NUEVO MODELO)
+class Gasto(models.Model):
+    usuario = models.ForeignKey(User, on_delete=models.PROTECT)
+    fecha = models.DateTimeField(auto_now_add=True)
+    descripcion = models.CharField(max_length=200, verbose_name="Descripción")
+    monto = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Monto ($)")
+
+    def __str__(self):
+        return f"${self.monto} - {self.descripcion}"
+
+# 6. COMPRAS
 class Compra(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(User, on_delete=models.PROTECT)
@@ -99,13 +108,20 @@ class DetalleCompra(models.Model):
     cantidad = models.DecimalField(max_digits=10, decimal_places=3)
     costo_unitario = models.DecimalField(max_digits=10, decimal_places=2)
 
-# 6. CIERRE DE CAJA
+# 7. CIERRE DE CAJA (ACTUALIZADO CON GASTOS)
 class CierreCaja(models.Model):
     usuario = models.ForeignKey(User, on_delete=models.PROTECT)
     fecha_cierre = models.DateTimeField(auto_now_add=True)
+    
+    # Ingresos
     monto_efectivo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_tarjeta = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     monto_transferencia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Egresos (NUEVO CAMPO)
+    total_gastos = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    
+    # Totales Informativos
     total_ventas = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     cantidad_ventas = models.IntegerField(default=0)
 
