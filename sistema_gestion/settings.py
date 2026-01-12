@@ -1,17 +1,14 @@
 from pathlib import Path
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-xwpta4_^5i@b81_wp7(g!(qkt)vf+l-+za&8^#be5acgr8)@di'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# Para empezar en la nube déjalo en True, luego lo cambiamos a False
 DEBUG = True
 
-# 1. PERMITIR CONEXIÓN DESDE CUALQUIER LUGAR (Importante para la nube)
 ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
@@ -67,20 +64,23 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
 ]
 
-# 2. CONFIGURACIÓN REGIONAL ECUADOR
 LANGUAGE_CODE = 'es-ec'
-TIME_ZONE = 'America/Guayaquil' # Vital para Cierre de Caja
+TIME_ZONE = 'America/Guayaquil'
 USE_I18N = True
 USE_TZ = True
 
-# 3. CONFIGURACIÓN DE ARCHIVOS ESTÁTICOS (CRÍTICO PARA LA NUBE)
 STATIC_URL = 'static/'
-
-# Esta línea es NUEVA y OBLIGATORIA para PythonAnywhere:
-# Define dónde se reunirán todos los estilos cuando ejecutes 'collectstatic'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# --- NUEVO: CONFIGURACIÓN DE TIMEOUT DE SESIÓN ---
+# Cerrar sesión si se cierra el navegador
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# Tiempo de inactividad (1800 segundos = 30 minutos)
+SESSION_COOKIE_AGE = 1800 
+# Reiniciar el contador con cada clic (para que no se cierre si estás trabajando)
+SESSION_SAVE_EVERY_REQUEST = True

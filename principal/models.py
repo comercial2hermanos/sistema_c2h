@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from decimal import Decimal # Importante para cálculos monetarios exactos
+from decimal import Decimal
 
 # 1. CLIENTES
 class Cliente(models.Model):
@@ -8,10 +8,13 @@ class Cliente(models.Model):
     nombre = models.CharField(max_length=100)
     direccion = models.CharField(max_length=200, blank=True)
     telefono = models.CharField(max_length=20, blank=True)
+    # NUEVO CAMPO: Identifica clientes especiales
+    es_mayorista = models.BooleanField(default=False, verbose_name="¿Es Cliente Especial/Mayorista?")
     creado = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.nombre} - {self.ruc_cedula}"
+        tipo = " (VIP)" if self.es_mayorista else ""
+        return f"{self.nombre}{tipo} - {self.ruc_cedula}"
 
 # 2. PRODUCTOS E INVENTARIO
 class Producto(models.Model):
@@ -45,20 +48,14 @@ class Venta(models.Model):
         estado = "PAGADO" if self.pagado else "PENDIENTE"
         return f"Factura #{self.id} - {self.cliente.nombre} ({estado})"
 
-    # CÁLCULO DINÁMICO: Cuánto deben de esta factura
     def saldo_pendiente(self):
-        # Si ya está marcada como pagada, no deben nada
         if self.pagado:
             return Decimal('0.00')
-        
-        # Sumamos todos los abonos registrados para esta venta
         total_abonado = sum(abono.monto for abono in self.abonos.all())
         saldo = self.total - total_abonado
         return saldo if saldo > 0 else Decimal('0.00')
 
-    # Lógica automática al guardar
     def save(self, *args, **kwargs):
-        # Si es una venta nueva y es a CRÉDITO, forzamos que 'pagado' sea False
         if not self.id and self.tipo_pago == 'CREDITO':
             self.pagado = False
         super().save(*args, **kwargs)
@@ -70,7 +67,7 @@ class DetalleVenta(models.Model):
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
 
-# 4. NUEVO MODELO: ABONOS (PAGOS PARCIALES)
+# 4. ABONOS
 class Abono(models.Model):
     venta = models.ForeignKey(Venta, related_name='abonos', on_delete=models.CASCADE)
     fecha = models.DateTimeField(auto_now_add=True)
@@ -80,15 +77,13 @@ class Abono(models.Model):
     def __str__(self):
         return f"Abono ${self.monto} a Venta #{self.venta.id}"
 
-    # Lógica automática: Si el abono completa el pago, cerramos la venta
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        # Verificamos si ya se pagó todo tras este abono
         if self.venta.saldo_pendiente() <= 0:
             self.venta.pagado = True
             self.venta.save()
 
-# 5. COMPRAS (INGRESO MERCADERÍA)
+# 5. COMPRAS
 class Compra(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(User, on_delete=models.PROTECT)

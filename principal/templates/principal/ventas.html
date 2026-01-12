@@ -60,7 +60,7 @@
                         {% for p in productos %}
                         <div class="col producto-item" data-nombre="{{ p.nombre|lower }}" data-codigo="{{ p.codigo }}">
                             <div class="card product-card h-100 p-2"
-                                 onclick="agregarAlCarrito({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|unlocalize }}, '{{ p.stock_actual|unlocalize }}', {{ p.es_granel|yesno:'true,false' }})">
+                                 onclick="agregarAlCarrito({{ p.id }}, '{{ p.nombre|escapejs }}', {{ p.precio_venta|unlocalize }}, '{{ p.stock_actual|unlocalize }}', {{ p.es_granel|yesno:'true,false' }}, {{ p.precio_costo|unlocalize }})">
                                 
                                 {% if p.stock_actual > 0 %}
                                     <span class="badge bg-success stock-badge">
@@ -94,10 +94,10 @@
                         <div class="row g-2">
                             <div class="col-12">
                                 <select id="select-cliente" class="form-select form-select-sm fw-bold">
-                                    <option value="">Seleccionar Cliente</option>
+                                    <option value="" data-mayorista="false">Seleccionar Cliente</option>
                                     {% for c in clientes %}
-                                        <option value="{{ c.id }}" {% if c.nombre|upper == 'CONSUMIDOR FINAL' %}selected{% endif %}>
-                                            {{ c.nombre }} ({{ c.ruc_cedula|default:'S/N' }})
+                                        <option value="{{ c.id }}" data-mayorista="{{ c.es_mayorista|yesno:'true,false' }}" {% if c.nombre|upper == 'CONSUMIDOR FINAL' %}selected{% endif %}>
+                                            {{ c.nombre }} ({{ c.ruc_cedula|default:'S/N' }}) {% if c.es_mayorista %}⭐VIP{% endif %}
                                         </option>
                                     {% empty %}
                                         <option value="">No hay clientes registrados</option>
@@ -121,7 +121,7 @@
                                 <tr>
                                     <th class="ps-3">Desc.</th>
                                     <th class="text-center">Cant.</th>
-                                    <th class="text-end pe-3">Total</th>
+                                    <th class="text-center">Precio</th> <th class="text-end pe-3">Total</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -206,13 +206,34 @@
     <script>
         let carrito = {}; 
         let productoActualGranel = null; 
-        
+        let clienteEsMayorista = false; // Variable para controlar precios especiales
+
         const modalGranel = new bootstrap.Modal(document.getElementById('modalGranel'));
 
-        // === INICIO Y BUSQUEDA ===
+        // === EVENTOS INICIALES ===
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('buscador').focus();
+            verificarClienteMayorista(); // Chequear estado inicial
         });
+
+        // DETECTAR CAMBIO DE CLIENTE
+        document.getElementById('select-cliente').addEventListener('change', verificarClienteMayorista);
+
+        function verificarClienteMayorista() {
+            let select = document.getElementById('select-cliente');
+            let opcion = select.options[select.selectedIndex];
+            
+            // Leemos el atributo data-mayorista del HTML
+            let esVip = (opcion.getAttribute('data-mayorista') === 'true');
+            
+            if (esVip !== clienteEsMayorista) {
+                clienteEsMayorista = esVip;
+                if(clienteEsMayorista) {
+                    Swal.fire({toast:true, icon:'info', title:'Modo Mayorista Activado', text:'Precios editables', position:'top-end', timer:2000, showConfirmButton:false});
+                }
+                renderizarTabla(); // Re-renderizar para habilitar/deshabilitar inputs de precio
+            }
+        }
 
         document.getElementById('buscador').addEventListener('keyup', function(e) {
             let texto = e.target.value.toLowerCase();
@@ -234,11 +255,12 @@
             });
         });
 
-        // === LÓGICA DE AGREGAR ===
-        function agregarAlCarrito(id, nombre, precio, stockMax, esGranel) {
+        // === LÓGICA DE AGREGAR (Ahora recibe Costo) ===
+        function agregarAlCarrito(id, nombre, precio, stockMax, esGranel, costo) {
             stockMax = parseFloat(stockMax);
+            costo = parseFloat(costo);
             
-            // 1. Lógica para productos normales (Unidad)
+            // 1. Productos normales
             if (esGranel === false) {
                 if (stockMax <= 0) return Swal.fire({toast:true, icon:'error', title:'¡Agotado!', showConfirmButton:false, timer:1000});
                 
@@ -247,15 +269,24 @@
                         return Swal.fire({toast:true, icon:'warning', title:'Stock Máximo Alcanzado', timer:1000});
                     }
                     carrito[id].cantidad++;
-                    carrito[id].subtotal = carrito[id].cantidad * precio;
+                    // Recalcular subtotal con el precio que tenga (puede haber sido editado)
+                    carrito[id].subtotal = carrito[id].cantidad * carrito[id].precio;
                 } else {
-                    carrito[id] = { nombre: nombre, precio: parseFloat(precio), cantidad: 1, subtotal: parseFloat(precio), stockMax: stockMax, esGranel: false };
+                    carrito[id] = { 
+                        nombre: nombre, 
+                        precio: parseFloat(precio), 
+                        costo: costo, // Guardamos el costo para validar después
+                        cantidad: 1, 
+                        subtotal: parseFloat(precio), 
+                        stockMax: stockMax, 
+                        esGranel: false 
+                    };
                 }
                 renderizarTabla();
             } 
-            // 2. Lógica para productos a Granel (Peso)
+            // 2. Productos Granel
             else {
-                productoActualGranel = { id, nombre, precio, stockMax };
+                productoActualGranel = { id, nombre, precio, stockMax, costo };
                 document.getElementById('granel-nombre').innerText = nombre;
                 document.getElementById('granel-precio').innerText = precio.toFixed(2);
                 document.getElementById('input-dinero').value = ''; 
@@ -292,19 +323,22 @@
             if (!peso || peso <= 0) return Swal.fire('Ingrese un valor válido', '', 'warning');
             
             let id = productoActualGranel.id;
-            let cantidadActual = carrito[id] ? carrito[id].cantidad : 0;
             
-            if ((cantidadActual + peso) > productoActualGranel.stockMax) {
+            if (carrito[id] && (carrito[id].cantidad + peso) > productoActualGranel.stockMax) {
+                return Swal.fire('Stock insuficiente', `Solo quedan ${productoActualGranel.stockMax} disponibles`, 'warning');
+            } else if (!carrito[id] && peso > productoActualGranel.stockMax) {
                 return Swal.fire('Stock insuficiente', `Solo quedan ${productoActualGranel.stockMax} disponibles`, 'warning');
             }
 
             if (carrito[id]) {
                 carrito[id].cantidad += peso;
-                carrito[id].subtotal += dinero;
+                // Calculamos subtotal basado en el precio actual (que podría ser editado)
+                carrito[id].subtotal = carrito[id].cantidad * carrito[id].precio;
             } else {
                 carrito[id] = { 
                     nombre: productoActualGranel.nombre, 
                     precio: productoActualGranel.precio, 
+                    costo: productoActualGranel.costo,
                     cantidad: peso, 
                     subtotal: dinero, 
                     stockMax: productoActualGranel.stockMax,
@@ -315,7 +349,7 @@
             renderizarTabla();
         }
 
-        // === RENDERIZADO DEL TICKET (CORREGIDO PARA LIBRAS/UNIDADES) ===
+        // === RENDERIZADO DEL TICKET (CON EDICIÓN DE PRECIOS) ===
         function renderizarTabla() {
             let tbody = document.getElementById('tabla-carrito');
             tbody.innerHTML = '';
@@ -329,16 +363,25 @@
                 total += item.subtotal;
                 count++; 
 
-                // Lógica de visualización corregida:
-                let cantidadDisplay;
-                let unidadDisplay;
-
+                let cantidadDisplay, unidadDisplay;
                 if (item.esGranel) {
-                    cantidadDisplay = item.cantidad.toFixed(2); // 2 decimales para libras
+                    cantidadDisplay = item.cantidad.toFixed(2);
                     unidadDisplay = "Lb";
                 } else {
-                    cantidadDisplay = item.cantidad.toFixed(0); // 0 decimales para unidades
+                    cantidadDisplay = item.cantidad.toFixed(0);
                     unidadDisplay = "Ud";
+                }
+
+                // Lógica de visualización del PRECIO
+                let precioDisplay;
+                if (clienteEsMayorista) {
+                    // Si es VIP, mostramos INPUT
+                    precioDisplay = `<input type="number" class="form-control form-control-sm text-center p-0 mx-auto text-primary fw-bold" 
+                                      value="${item.precio.toFixed(2)}" step="0.01"
+                                      onchange="cambiarPrecio(${id}, this.value)" style="width: 70px;">`;
+                } else {
+                    // Si es normal, mostramos TEXTO
+                    precioDisplay = `$${item.precio.toFixed(2)}`;
                 }
 
                 let row = `<tr>
@@ -356,6 +399,9 @@
                         }
                         </div>
                     </td>
+                    <td class="text-center align-middle">
+                        ${precioDisplay}
+                    </td>
                     <td class="text-end pe-3 fw-bold align-middle">$${item.subtotal.toFixed(2)}</td>
                     <td class="text-center align-middle">
                         <i class="bi bi-x-circle text-danger" style="cursor: pointer;" onclick="eliminarItem(${id})"></i>
@@ -370,7 +416,46 @@
             calcularCambio();
         }
 
-        // === FUNCIONES DE MODIFICACIÓN ===
+        // === FUNCIÓN NUEVA: CAMBIAR PRECIO CON ALERTA DE COSTO ===
+        window.cambiarPrecio = function(id, nuevoPrecioVal) {
+            let nuevoPrecio = parseFloat(nuevoPrecioVal);
+            let item = carrito[id];
+
+            if (isNaN(nuevoPrecio) || nuevoPrecio < 0) {
+                renderizarTabla(); // Restaurar valor anterior
+                return Swal.fire('Precio Inválido', '', 'error');
+            }
+
+            // ALERTA DE PÉRDIDA
+            if (nuevoPrecio < item.costo) {
+                Swal.fire({
+                    title: '¡ALERTA DE PÉRDIDA! 📉',
+                    html: `El precio ingresado <b>($${nuevoPrecio.toFixed(2)})</b> es menor al costo del producto <b>($${item.costo.toFixed(2)})</b>.<br>¿Desea autorizar esta venta especial?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, Autorizar',
+                    cancelButtonText: 'Corregir Precio'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Autorizado
+                        item.precio = nuevoPrecio;
+                        item.subtotal = item.cantidad * nuevoPrecio;
+                        renderizarTabla();
+                    } else {
+                        // Cancelado, se restaura la tabla con el precio viejo
+                        renderizarTabla();
+                    }
+                });
+            } else {
+                // Precio normal (con ganancia)
+                item.precio = nuevoPrecio;
+                item.subtotal = item.cantidad * nuevoPrecio;
+                renderizarTabla();
+            }
+        }
+
         window.cambiarCantidad = function(id, val) {
             val = parseFloat(val);
             let item = carrito[id];
@@ -408,8 +493,6 @@
             document.getElementById('buscador').focus();
         }
 
-        // === PAGOS Y CONFIRMACIÓN ===
-        
         window.verificarCredito = function() {
             let pago = document.getElementById('select-pago').value;
             let inputRecibido = document.getElementById('monto-recibido');
