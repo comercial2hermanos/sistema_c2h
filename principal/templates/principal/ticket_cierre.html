@@ -15,7 +15,7 @@
         body {
             font-family: 'Courier New', Courier, monospace;
             font-size: 12px;
-            width: 75mm;
+            width: 75mm; /* Ancho estándar 80mm con márgenes */
             margin: auto;
             color: #000;
             background-color: #fff;
@@ -118,7 +118,7 @@
         
         <table>
             <tr>
-                <td>EFECTIVO (TOTAL):</td>
+                <td>EFECTIVO (CAJA):</td>
                 <td class="right bold">$ {{ cierre.monto_efectivo|floatformat:2 }}</td>
             </tr>
             
@@ -130,6 +130,11 @@
             <tr class="sub-row">
                 <td class="sub-item" style="padding-left: 10px;">↳ Cobros/Abonos:</td>
                 <td class="right sub-item">$ {{ abonos|floatformat:2 }}</td>
+            </tr>
+            
+            <tr>
+                <td>(-) GASTOS DEL TURNO:</td>
+                <td class="right bold">-$ {{ gastos|floatformat:2 }}</td>
             </tr>
 
             <tr><td colspan="2" style="height: 5px;"></td></tr>

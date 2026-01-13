@@ -9,12 +9,12 @@ from principal.views import (
     gestion_clientes, crear_cliente, editar_cliente, eliminar_cliente,
     gestion_usuarios, crear_usuario, editar_usuario, eliminar_usuario,
     # REPORTES
-    vista_reportes_menu, reporte_ventas, reporte_inventario, reporte_cierres,
+    vista_reportes_menu, reporte_ventas, reporte_inventario, reporte_cierres, reporte_gastos, # <--- AGREGADO
     # FIADOS / CUENTAS POR COBRAR
     cuentas_por_cobrar, guardar_abono,
     # API CLIENTE RÁPIDO
     crear_cliente_rapido,
-    # --- GASTOS (ESTO ES LO QUE FALTABA) ---
+    # GASTOS
     listar_gastos, guardar_gasto
 )
 
@@ -35,7 +35,7 @@ urlpatterns = [
     path('compras/', vista_compras, name='compras'),
     path('guardar_compra/', guardar_compra, name='guardar_compra'),
 
-    # --- RUTAS DE GASTOS (VITAL PARA EL BOTÓN) ---
+    # GASTOS
     path('gastos/', listar_gastos, name='listar_gastos'),
     path('gastos/guardar/', guardar_gasto, name='guardar_gasto'),
 
@@ -71,4 +71,5 @@ urlpatterns = [
     path('reportes/ventas/', reporte_ventas, name='reporte_ventas'),
     path('reportes/inventario/', reporte_inventario, name='reporte_inventario'),
     path('reportes/cierres/', reporte_cierres, name='reporte_cierres'),
+    path('reportes/gastos/', reporte_gastos, name='reporte_gastos'), # <--- NUEVA RUTA
 ]

@@ -17,36 +17,48 @@
             <a href="{% url 'menu' %}" class="btn btn-outline-primary"><i class="bi bi-house-door-fill"></i> Volver al Menú</a>
         </div>
 
-        <div class="row g-4">
-            <div class="col-md-4">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+            
+            <div class="col">
                 <a href="{% url 'reporte_ventas' %}" class="text-decoration-none">
                     <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
                         <div class="text-success mb-3"><i class="bi bi-cash-coin display-4"></i></div>
-                        <h4 class="fw-bold text-dark">Reporte de Ventas</h4>
-                        <p class="text-muted small">Consulta ventas por rango de fechas, totales y métodos de pago.</p>
+                        <h4 class="fw-bold text-dark">Ventas</h4>
+                        <p class="text-muted small">Ingresos por fecha y pagos.</p>
                     </div>
                 </a>
             </div>
 
-            <div class="col-md-4">
+            <div class="col">
                 <a href="{% url 'reporte_inventario' %}" class="text-decoration-none">
                     <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
                         <div class="text-primary mb-3"><i class="bi bi-box-seam display-4"></i></div>
-                        <h4 class="fw-bold text-dark">Inventario Valorizado</h4>
-                        <p class="text-muted small">Conoce cuánto dinero tienes en stock y tu ganancia estimada.</p>
+                        <h4 class="fw-bold text-dark">Inventario</h4>
+                        <p class="text-muted small">Valor de stock y ganancias.</p>
                     </div>
                 </a>
             </div>
 
-            <div class="col-md-4">
+            <div class="col">
                 <a href="{% url 'reporte_cierres' %}" class="text-decoration-none">
                     <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
                         <div class="text-danger mb-3"><i class="bi bi-receipt display-4"></i></div>
-                        <h4 class="fw-bold text-dark">Historial de Cierres</h4>
-                        <p class="text-muted small">Auditoría de todos los cierres de caja realizados por los cajeros.</p>
+                        <h4 class="fw-bold text-dark">Cierres</h4>
+                        <p class="text-muted small">Historial de arqueos de caja.</p>
                     </div>
                 </a>
             </div>
+
+            <div class="col">
+                <a href="{% url 'reporte_gastos' %}" class="text-decoration-none">
+                    <div class="card h-100 border-0 shadow-sm text-center p-4 hover-effect">
+                        <div class="text-secondary mb-3"><i class="bi bi-wallet2 display-4"></i></div>
+                        <h4 class="fw-bold text-dark">Gastos</h4>
+                        <p class="text-muted small">Control de salidas de dinero.</p>
+                    </div>
+                </a>
+            </div>
+
         </div>
     </div>
 

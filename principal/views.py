@@ -205,9 +205,6 @@ def imprimir_reporte_cierre(request, id_cierre):
     total_abonos = Decimal(total_abonos)
     total_gastos = Decimal(total_gastos)
     
-    # El monto efectivo guardado en CierreCaja ya tiene restado los gastos y sumado los abonos
-    # Solo los pasamos al contexto para desglose visual
-    
     context = {'cierre': cierre, 'abonos': total_abonos, 'gastos': total_gastos}
     return render(request, 'principal/ticket_cierre.html', context)
 
@@ -399,6 +396,30 @@ def reporte_inventario(request):
 def reporte_cierres(request):
     cierres = CierreCaja.objects.all().order_by('-fecha_cierre')
     return render(request, 'principal/reporte_cierres.html', {'cierres': cierres})
+
+# --- AQUÍ ESTÁ LO NUEVO: REPORTE DE GASTOS ---
+@user_passes_test(es_admin, login_url='/')
+def reporte_gastos(request):
+    hoy = timezone.now()
+    fecha_inicio = request.GET.get('inicio', hoy.replace(day=1).strftime('%Y-%m-%d'))
+    fecha_fin = request.GET.get('fin', hoy.strftime('%Y-%m-%d'))
+
+    # Filtramos por fecha
+    gastos = Gasto.objects.filter(fecha__date__range=[fecha_inicio, fecha_fin]).order_by('-fecha')
+    
+    total_gastado = gastos.aggregate(Sum('monto'))['monto__sum'] or 0
+    
+    # Agrupar por usuario (quién gasta más)
+    por_usuario = gastos.values('usuario__username').annotate(total=Sum('monto')).order_by('-total')
+
+    context = {
+        'gastos': gastos,
+        'fecha_inicio': fecha_inicio,
+        'fecha_fin': fecha_fin,
+        'total_gastado': total_gastado,
+        'por_usuario': por_usuario
+    }
+    return render(request, 'principal/reporte_gastos.html', context)
 
 @login_required
 def cuentas_por_cobrar(request):
