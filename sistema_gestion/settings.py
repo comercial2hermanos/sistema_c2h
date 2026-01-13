@@ -18,7 +18,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'principal',
+    # --- HERRAMIENTAS ACTIVAS ---
+    'django.contrib.humanize',  # <--- ¡ESTO FALTABA! (Para formato de moneda)
+    'principal',                # Tu aplicación principal
 ]
 
 MIDDLEWARE = [
@@ -64,20 +66,23 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
 ]
 
+# --- IDIOMA Y ZONA HORARIA ---
 LANGUAGE_CODE = 'es-ec'
 TIME_ZONE = 'America/Guayaquil'
 USE_I18N = True
 USE_TZ = True
 
+# --- ARCHIVOS ESTÁTICOS ---
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# --- REDIRECCIÓN AL ENTRAR/SALIR ---
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
-# --- NUEVO: CONFIGURACIÓN DE TIMEOUT DE SESIÓN ---
+# --- CONFIGURACIÓN DE SEGURIDAD DE SESIÓN ---
 # Cerrar sesión si se cierra el navegador
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Tiempo de inactividad (1800 segundos = 30 minutos)
