@@ -1,116 +1,127 @@
-{% load l10n %}
+{% load static humanize %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Cierre de Caja - Comercial 2 Hermanos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
-        .card-cierre { max-width: 600px; margin: 2rem auto; border: none; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .monto-display { font-size: 1.5rem; font-weight: bold; }
-        .total-box { background: #212529; color: white; padding: 20px; border-radius: 10px; text-align: center; margin-top: 20px; }
-        .sub-item { font-size: 0.9rem; color: #6c757d; }
+        body { background-color: #e9ecef; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card-cierre { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header-bg { background: linear-gradient(135deg, #dc3545 0%, #a71d2a 100%); color: white; padding: 2rem; border-radius: 15px 15px 0 0; }
+        .money-display { font-size: 2.5rem; font-weight: bold; color: #198754; }
+        .list-group-item { border: none; padding: 1rem 1.5rem; }
+        .list-group-item:nth-child(even) { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
 
-    <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4" style="max-width: 600px; margin: 0 auto;">
-            <a href="{% url 'menu' %}" class="btn btn-secondary shadow-sm">
-                <i class="bi bi-arrow-left"></i> Volver al Menú
-            </a>
-            <span class="badge bg-primary fs-6">Usuario: {{ usuario.username|upper }}</span>
-        </div>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                
+                <div class="d-flex justify-content-between mb-3">
+                    <a href="{% url 'menu' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver al Menú</a>
+                    <span class="text-muted small"><i class="bi bi-clock"></i> {{ fecha_hora|date:"d M Y - H:i" }}</span>
+                </div>
 
-        <div class="card card-cierre bg-white p-4">
-            <div class="text-center mb-4">
-                <h2 class="fw-bold text-danger"><i class="bi bi-shop"></i> CIERRE DE CAJA</h2>
-                <p class="text-muted">Comercial 2 Hermanos</p>
-                <hr>
-                <div class="row text-start text-muted small">
-                    <div class="col-6">
-                        <strong>Fecha Actual:</strong><br> {{ fecha_hora|date:"d/m/Y H:i" }}
+                <div class="card card-cierre">
+                    <div class="header-bg text-center">
+                        <h2 class="mb-0"><i class="bi bi-calculator"></i> Arqueo de Caja</h2>
+                        <p class="opacity-75 mb-0">Usuario: {{ usuario.username|upper }}</p>
                     </div>
-                    <div class="col-6 text-end">
-                        <strong>Movimientos Nuevos:</strong><br> {{ cantidad_ventas }} ventas
+
+                    <div class="card-body p-4">
+                        
+                        {% if cantidad_ventas == 0 and abonos_hoy == 0 and gastos_hoy == 0 %}
+                            <div class="alert alert-warning text-center">
+                                <i class="bi bi-exclamation-triangle"></i> No se han registrado movimientos desde el último cierre.
+                            </div>
+                        {% endif %}
+
+                        <h5 class="fw-bold text-secondary mb-3">💵 Efectivo Esperado en Cajón</h5>
+                        <div class="bg-light p-3 rounded-3 border mb-4 text-center">
+                            <span class="text-muted small d-block">Debe haber físicamente:</span>
+                            <div class="money-display">${{ efectivo_en_caja|floatformat:2|intcomma }}</div>
+                        </div>
+
+                        <h5 class="fw-bold text-secondary mb-3">📝 Detalle de Movimientos</h5>
+                        <ul class="list-group shadow-sm mb-4">
+                            
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-cart-check-fill text-primary me-2"></i>
+                                    <strong>(+) Ventas en Efectivo</strong>
+                                </div>
+                                <span class="fw-bold text-dark">${{ efectivo_ventas|floatformat:2|intcomma }}</span>
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="bi bi-journal-arrow-down text-success me-2"></i>
+                                    <strong>(+) Cobros / Abonos</strong>
+                                </div>
+                                <span class="fw-bold text-success">${{ abonos_hoy|floatformat:2|intcomma }}</span>
+                            </li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center bg-danger bg-opacity-10">
+                                <div>
+                                    <i class="bi bi-dash-circle-fill text-danger me-2"></i>
+                                    <strong>(-) Gastos / Salidas</strong>
+                                </div>
+                                <span class="fw-bold text-danger">-${{ gastos_hoy|floatformat:2|intcomma }}</span>
+                            </li>
+
+                            <li class="list-group-item border-top border-2 mt-2"></li>
+
+                            <li class="list-group-item d-flex justify-content-between align-items-center text-muted">
+                                <small><i class="bi bi-credit-card"></i> Tarjetas</small>
+                                <small>${{ tarjeta|floatformat:2|intcomma }}</small>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center text-muted">
+                                <small><i class="bi bi-bank"></i> Transferencias</small>
+                                <small>${{ transferencia|floatformat:2|intcomma }}</small>
+                            </li>
+                        </ul>
+
+                        <div class="d-grid">
+                            <button onclick="confirmarCierre()" class="btn btn-danger btn-lg fw-bold shadow">
+                                <i class="bi bi-lock-fill"></i> CERRAR CAJA Y GENERAR REPORTE
+                            </button>
+                        </div>
+
                     </div>
-                    <div class="col-12 mt-2 text-center text-info">
-                        <em>(Corte anterior: {{ ultimo_cierre|date:"d/m/Y H:i" }})</em>
+                    <div class="card-footer text-center text-muted small py-3">
+                        Último cierre: {{ ultimo_cierre }}
                     </div>
                 </div>
+
             </div>
-
-            <h5 class="mb-3 fw-bold">Desglose de Dinero Recibido:</h5>
-            
-            <ul class="list-group shadow-sm mb-3">
-                <li class="list-group-item d-flex justify-content-between align-items-center py-3 bg-light">
-                    <div>
-                        <span class="fw-bold"><i class="bi bi-cash-coin text-success"></i> Efectivo Total (En Caja)</span>
-                        <div class="sub-item ps-4">
-                            • Ventas Directas: ${{ efectivo_ventas|default:efectivo|floatformat:2 }} <br>
-                            • Abonos de Créditos: ${{ abonos_hoy|floatformat:2 }}
-                        </div>
-                    </div>
-                    <span class="monto-display text-success">${{ efectivo|floatformat:2 }}</span>
-                </li>
-
-                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                    <span><i class="bi bi-credit-card text-primary"></i> Tarjetas</span>
-                    <span class="monto-display text-primary">${{ tarjeta|floatformat:2 }}</span>
-                </li>
-
-                <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                    <span><i class="bi bi-bank text-info"></i> Transferencias</span>
-                    <span class="monto-display text-info">${{ transferencia|floatformat:2 }}</span>
-                </li>
-            </ul>
-
-            <div class="total-box shadow">
-                <h5 class="mb-1 text-uppercase opacity-75">Ingreso Total del Turno</h5>
-                <h1 class="fw-bold m-0 display-4">${{ gran_total|floatformat:2 }}</h1>
-            </div>
-
-            <div class="d-grid gap-2 mt-4">
-                {% if cantidad_ventas > 0 or abonos_hoy > 0 %}
-                    <button onclick="confirmarCierre()" class="btn btn-danger btn-lg fw-bold shadow">
-                        <i class="bi bi-lock-fill"></i> CERRAR CAJA E IMPRIMIR
-                    </button>
-                {% else %}
-                    <button class="btn btn-secondary btn-lg" disabled>
-                        No hay movimientos nuevos para cerrar
-                    </button>
-                {% endif %}
-            </div>
-
         </div>
     </div>
 
     <script>
         function confirmarCierre() {
             Swal.fire({
-                title: '¿Cerrar Caja?',
-                text: "Esto guardará el corte actual y reiniciará los contadores. ¿Estás seguro?",
+                title: '¿Estás seguro?',
+                text: "Se cerrará el turno actual y se reiniciarán los contadores.",
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
                 confirmButtonText: 'Sí, Cerrar Caja',
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    realizarCierre();
+                    procesarCierre();
                 }
             })
         }
 
-        function realizarCierre() {
-            // Bloqueamos el botón para evitar doble click
-            const btn = document.querySelector('button.btn-danger');
-            if(btn) btn.disabled = true;
-
+        function procesarCierre() {
             fetch("{% url 'procesar_cierre' %}", {
                 method: "POST",
                 headers: {
@@ -120,28 +131,26 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'ok') {
-                    Swal.fire({
-                        title: '¡Caja Cerrada!',
-                        text: 'El reporte se ha generado correctamente.',
-                        icon: 'success',
-                        confirmButtonText: 'Imprimir Reporte'
-                    }).then(() => {
-                        // Abrir ticket de impresión y recargar página para poner contadores a cero
+                if(data.status === 'ok') {
+                    Swal.fire(
+                        '¡Caja Cerrada!',
+                        'El reporte se ha generado correctamente.',
+                        'success'
+                    ).then(() => {
                         window.open(`/cierre/imprimir/${data.id_cierre}/`, '_blank');
-                        location.reload();
+                        window.location.href = "{% url 'menu' %}";
                     });
                 } else {
                     Swal.fire('Error', data.mensaje, 'error');
-                    if(btn) btn.disabled = false;
                 }
             })
             .catch(error => {
-                console.error(error);
-                Swal.fire('Error', 'No se pudo conectar con el servidor', 'error');
-                if(btn) btn.disabled = false;
+                console.error('Error:', error);
+                Swal.fire('Error', 'Hubo un problema al procesar el cierre.', 'error');
             });
         }
     </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
