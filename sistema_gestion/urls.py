@@ -12,8 +12,10 @@ from principal.views import (
     vista_reportes_menu, reporte_ventas, reporte_inventario, reporte_cierres,
     # FIADOS / CUENTAS POR COBRAR
     cuentas_por_cobrar, guardar_abono,
-    # NUEVO: API CLIENTE RÁPIDO (Esta es la línea que faltaba en la nube)
-    crear_cliente_rapido
+    # API CLIENTE RÁPIDO
+    crear_cliente_rapido,
+    # --- GASTOS (ESTO ES LO QUE FALTABA) ---
+    listar_gastos, guardar_gasto
 )
 
 urlpatterns = [
@@ -27,13 +29,15 @@ urlpatterns = [
     path('ventas/', vista_ventas, name='ventas'),
     path('guardar_venta/', guardar_venta, name='guardar_venta'),
     path('imprimir_ticket/<int:id_venta>/', imprimir_ticket, name='imprimir_ticket'),
-
-    # --- NUEVA RUTA: API PARA CREAR CLIENTE SIN RECARGAR ---
     path('api/crear_cliente_rapido/', crear_cliente_rapido, name='crear_cliente_rapido'),
 
     # COMPRAS
     path('compras/', vista_compras, name='compras'),
     path('guardar_compra/', guardar_compra, name='guardar_compra'),
+
+    # --- RUTAS DE GASTOS (VITAL PARA EL BOTÓN) ---
+    path('gastos/', listar_gastos, name='listar_gastos'),
+    path('gastos/guardar/', guardar_gasto, name='guardar_gasto'),
 
     # PRODUCTOS
     path('productos/', vista_lista_productos, name='lista_productos'),
@@ -58,7 +62,7 @@ urlpatterns = [
     path('cierre/procesar/', procesar_cierre_caja, name='procesar_cierre'),
     path('cierre/imprimir/<int:id_cierre>/', imprimir_reporte_cierre, name='imprimir_reporte_cierre'),
 
-    # NUEVAS RUTAS DE FIADOS
+    # CUENTAS POR COBRAR
     path('cuentas-por-cobrar/', cuentas_por_cobrar, name='cuentas_por_cobrar'),
     path('guardar-abono/', guardar_abono, name='guardar_abono'),
 
